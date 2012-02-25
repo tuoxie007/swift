@@ -156,8 +156,8 @@
     Swift.prototype.val = function(value) {
       if (value === undefined) {
         if (this.length) {
-          if (this.attr('value') != null)
-            return this.attr('value');
+          if (this[0].value != null)
+            return this[0].value;
           else
             if (this.tag() == 'select') {
               var options = this.children();
@@ -183,7 +183,7 @@
             } else if (this.tag() == 'textarea') {
               return arguments[1] ? $.htmlEncode(this[0].value) : this[0].value;
             } else {
-              return this.attr('value');
+              return this[0].value;
             }
         }
       } else {
