@@ -423,7 +423,7 @@
     }
     Swift.prototype.show = function(speed) {
       if (!speed)
-        return this.css('display', '');
+        return this.css('display', swift.isinline(this.tag()) ? 'inline' : 'block');
       var orgwidth = this.css('width'),
           orgheight = this.css('height'),
           dsp = this.css('display');
@@ -1106,5 +1106,8 @@
       }) + '"';
     }
     return '"' + string + '"';
+  }
+  swift.isinline = function(tag) {
+    return swift.inArray(tag, ["a", "abbr", "acronym", "b", "bdo", "big", "br", "cite", "code", "dfn", "em", "i", "img", "input", "kbd", "label", "q", "samp", "select", "small", "span", "strong", "sub", "sup", "textarea", "tt", "var"]);
   }
 })(window);
