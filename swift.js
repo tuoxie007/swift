@@ -23,6 +23,9 @@
   String.prototype.endswith=function(substr) {
       return this.slice(-substr.length) == substr;
   }
+  String.prototype.startswith=function(substr) {
+      return this.slice(0, substr.length) == substr;
+  }
 
 
   if (!Array.prototype.forEach)
@@ -49,9 +52,20 @@
     Swift.prototype = Array.prototype;
     Swift.prototype.constructor = Swift;
     Swift.prototype.find = function(selector) {
-        if (this.length) {
-          return swift(selector, this[0]);
+      if (this.length) {
+        return swift(selector, this[0]);
+      }
+      return swift([]);
+    }
+    Swift.prototype.filternot = function(selector) {
+      var ised = swift(selector, this.context);
+      var noted = [];
+      this.each(function() {
+        if (!swift.inArray(this, ised)) {
+          noted.push(this);
         }
+      });
+      return swift(noted);
     }
     Swift.prototype.each = function(callback) {
       for (var i=0; i<this.length; i++) {
@@ -121,7 +135,7 @@
       });
       return this;
     }
-    var actions = "blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select keydown keypress keyup error contextmenu".split(" ");
+    var actions = "blur focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select keydown keypress keyup error contextmenu".split(" ");
     for (var i=0; i<actions.length; i++) {
       var action = actions[i];
       (function(action) {
@@ -129,6 +143,12 @@
           return this.bind(action, callback, cancelBubble);
         }
       })(action);
+    }
+    Swift.prototype.focus = function() {
+      if (this.length) {
+        this[0].focus();
+      }
+      return this;
     }
     Swift.prototype.attr = function() {
       if (arguments.length == 1 && swift.type(arguments[0]) == 'Object') {
@@ -256,7 +276,9 @@
       } else { // write
         var elem = this[0];
         if (elem && elem.nodeType !== 3 && elem.nodeType !== 8 && elem.style)
-          this[0].style[name] = (isIntStyle && swift.isInt(value)) ? '%spx'.fs(value) : value;
+          this.each(function() {
+            this.style[name] = (isIntStyle && swift.isInt(value)) ? '%spx'.fs(value) : value;
+          });
         return this;
       }
     }
@@ -441,8 +463,8 @@
           this.innerHTML = htmlStr;
         });
         return this;
-      } else
-        return this.innerHTML;
+      } else if (this.length)
+        return this[0].innerHTML;
     }
     Swift.prototype.text = function(textStr) {
       if (textStr !== undefined) {
@@ -499,6 +521,7 @@
     Swift.prototype.next = function() {
       if (this.length)
         return swift(this[0].nextSibling);
+      return swift([]);
     }
     Swift.prototype.prev = function() {
       if (this.length)
@@ -554,9 +577,11 @@
       if (!this.length || !param || !(param instanceof Object)) return;
       var userDlg = this,
           oldParent = this.parent();
-      var dlg = swift('<div></div>').addClass('swift-dialog')
+      var dlg = userDlg.dialog = swift('<div></div>').addClass('swift-dialog')
                                     .width(param.width)
                                     .height(param.height)
+                                    .css('border', 'solid 3px #999')
+                                    .css('background', '#FFF')
                                     .css(param.style);
 
       var bgDiv = param.model ? swift('<div></div>').width($(this.doc().body).width())
@@ -603,7 +628,9 @@
       if (param.buttons) {
         var bntDiv = swift('<div></div>').addClass('swift-dialog-buttons')
                                          .height(25)
-                                         .css('float', 'right')
+                                         .css({
+                                           'float': 'right'
+                                         })
                                          .width('100%')
                                          .css(param.buttonDivStyle)
                                          .append(swift('<div></div>').css('float', 'right'));
@@ -625,24 +652,26 @@
       }
       dlg.css('z-index', '10000')
          .css('position', 'absolute')
-         .appendTo(dlg.doc().body)
-         .css('border', 'solid 3px #999')
-         .css('background', '#FFF');
+         .appendTo(dlg.doc().body);
       var contentDiv = swift('<div></div>').addClass('swift-dialog-content')
                                            .width('100%')
                                            .css(param.contentDivStyle);
       if (bntDiv) contentDiv.before(bntDiv);
       else contentDiv.appendTo(dlg);
-      this.appendTo(contentDiv).show();
+      userDlg.appendTo(contentDiv).show();
       contentDiv.height(dlg.height() 
                            - (dlg.find('.swift-dialog-title').height2() || 0)
                            - (dlg.find('.swift-dialog-buttons').height2() || 0))
-      dlg.css('left', window.innerWidth/2 - dlg.width3()/2 + 'px')
-         .css('top', window.innerHeight/2 - dlg.height3()/2 + 'px')
+      if (!param.style || param.style.left == undefined)
+        dlg.css('left', window.innerWidth/2 - dlg.width3()/2 + 'px')
+      if (!param.style || param.style.top == undefined)
+        dlg.css('top', window.innerHeight/2 - dlg.height3()/2 + 'px')
       this.close = function(event) {
-        if (oldParent)
-          this.appendTo(oldParent());
-        else
+        if (oldParent){
+          this.appendTo(oldParent);
+          if (this.style("display") != "none")
+            this.hide();
+        } else
           this.remove();
         dlg.remove();
         bgDiv && bgDiv.remove();
@@ -926,6 +955,7 @@
                     .css('padding', '20px 50px 20px 50px')
                     .css(style)
                     .dialog({
+                      model: true,
                       buttons: {
                         'OK': function(){
                           callback && callback.apply(this, arguments);
@@ -1013,7 +1043,7 @@
     return (new Date()).getTime();
   }
   swift.inArray = function(value, arr, startIdx) {
-    for (var i=0; i<startIdx; i++) {
+    for (var i=startIdx||0; i<arr.length; i++) {
       if (value === arr[i]) return true;
       else continue;
     }
@@ -1111,3 +1141,4 @@
     return swift.inArray(tag, ["a", "abbr", "acronym", "b", "bdo", "big", "br", "cite", "code", "dfn", "em", "i", "img", "input", "kbd", "label", "q", "samp", "select", "small", "span", "strong", "sub", "sup", "textarea", "tt", "var"]);
   }
 })(window);
+
