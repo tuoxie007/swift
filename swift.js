@@ -22,10 +22,10 @@
   };
   String.prototype.endswith=function(substr) {
       return this.slice(-substr.length) == substr;
-  }
+  };
   String.prototype.startswith=function(substr) {
       return this.slice(0, substr.length) == substr;
-  }
+  };
 
 
   if (!Array.prototype.forEach)
@@ -628,9 +628,7 @@
       if (param.buttons) {
         var bntDiv = swift('<div></div>').addClass('swift-dialog-buttons')
                                          .height(25)
-                                         .css({
-                                           'float': 'right'
-                                         })
+                                         .css('float', 'right')
                                          .width('100%')
                                          .css(param.buttonDivStyle)
                                          .append(swift('<div></div>').css('float', 'right'));
@@ -767,7 +765,7 @@
         var tags = ctx.querySelectorAll(selector);
     } else if (selector instanceof HTMLElement 
       || selector instanceof HTMLDocument 
-      || selector === window)
+      || selector instanceof Window)
       var tags = [selector];
     else if (type == 'Array' || type == 'NodeList')
       var tags = selector;
@@ -871,6 +869,9 @@
     for (var key in param.headers) {
       xmlhttp.setRequestHeader(key, param.headers[key]);
     }
+    xmlhttp.setRequestHeader('Accept', '*/*')
+    xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
+    xmlhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
     xmlhttp.onreadystatechange = function() {
       if (xmlhttp.readyState == 4) {
         if (param[xmlhttp.status]) {
@@ -878,7 +879,7 @@
                      'status': xmlhttp.status,
                      'headers': xmlhttp.getAllResponseHeaders(), 
                      'body': xmlhttp.responseText};
-          param[xmlhttp.status](ret);
+          param[xmlhttp.status].call(param, ret);
         } else if (xmlhttp.status == 200) {
           if (param.success) {
             var type = param.type;
@@ -889,14 +890,14 @@
             } else if (type.toLowerCase() == 'xml') {
               var ret = xmlhttp.responseXML;
             }
-            param.success(ret);
+            param.success.call(param, ret);
           }
         } else if (param.error) {
             var ret = {'error': 'HTTP_ERROR', 
                        'status': xmlhttp.status,
                        'headers': xmlhttp.getAllResponseHeaders(), 
                        'body': xmlhttp.responseText};
-            param.error(ret);
+            param.error.call(param, ret);
         }
       }
     }
@@ -904,7 +905,7 @@
       setTimeout(function(){
         xmlhttp.abort();
         var ret = {'error': 'TIMEOUT'}
-        param.error(ret);
+        param.error.call(param, ret);
       }, param.timeout);
     }
     if (param.method.toUpperCase() == 'POST') {
@@ -1139,6 +1140,21 @@
   }
   swift.isinline = function(tag) {
     return swift.inArray(tag, ["a", "abbr", "acronym", "b", "bdo", "big", "br", "cite", "code", "dfn", "em", "i", "img", "input", "kbd", "label", "q", "samp", "select", "small", "span", "strong", "sub", "sup", "textarea", "tt", "var"]);
+  }
+  swift.site_path = function(path) {
+    var prefix = this.site_url_prefix.endswith('/') ? this.site_url_prefix.slice(0, -1) : this.site_url_prefix;
+    if (path.startswith('/')) {
+      return (prefix || '') + path;
+    } else {
+      return (window.document.location.pathname.endswith('/') ? '%s%s' : '%s/%s').fs(window.document.location.pathname, path);
+    }
+  }
+  swift.site_url = function(path, protocol) {
+    var protocol = protocol || window.location.href.startswith('https://') ? 'https' : 'http';
+    return "%s://%s%s".fs(protocol, location.host, swift.site_path(path));
+  }
+  swift.goto = function(url) {
+    return window.document.location.href = url;
   }
 })(window);
 
