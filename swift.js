@@ -42,7 +42,7 @@
 	}
 	
 	// global
-	var global = {events: []};
+	var global = {events: [], data: {}};
 
 	function Swift(tags, selector, context) {
 		for (var i = 0; i < tags.length; i++) {
@@ -51,18 +51,12 @@
 		this.length = tags.length;
 		this.context = context;
 		this.selector = selector;
+		this.swift = "2.0";
 	}
 	// extend Swift prototype
 	Swift.prototype = Array.prototype;
 	Swift.prototype.constructor = Swift;
-	Swift.prototype.isSwiftObject = true;
 	Swift.prototype.find = function (arg1) {
-		/*
-			.find(selector)
-			.find(swift object)
-			.find(elements)
-			.find(element)
-		*/
 		if (!this.length)
 			return swift([]);
 		else if (typeof arg1 === 'string') { // .find(selector)
@@ -71,7 +65,7 @@
 				found.add(swift(arg1, this));
 			});
 			return found;
-		} else if (arg1.isSwiftObject) { // .find(swift object)
+		} else if (arg1.swift) { // .find(swift object)
 			return swift(swift.filter(this, function(item) {
 				return item in arg1;
 			}));
@@ -86,10 +80,6 @@
 		}
 	}
 	Swift.prototype.each = function (callback) {
-		/*
-		Iterate over a Swift object, executing a function for each matched element.
-			.each(function(index, element, swift object self))
-		*/
 		Array.prototype.forEach.call(this, function(item, index, items) {
 			callback.call(item, index, item, items);
 		});
@@ -108,13 +98,14 @@
 				if (this == (event.target || event.srcElement))
 					if (data) event.data = data;
 					event.delegateTarget = this;
-					handler.call(this, event);
+					event.returnValue = handler.call(this, event);
 					if (self.one)
 						self.unbind();
+					return event.returnValue;
 			});
 		};
 		this.bind = function() {
-			$(context).each(function() {
+			$(this.context).each(function() {
 				if (window.addEventListener) {
 					this.addEventListener(action, real_heandler);
 				} else {
@@ -123,7 +114,7 @@
 			});
 		}
 		this.unbind = function() {
-			$(context).each(function() {
+			$(this.context).each(function() {
 				if (window.removeEventListener) {
 					this.removeEventListener(action, real_heandler);
 				} else {
@@ -131,13 +122,11 @@
 				}
 			});
 		}
+		this.clone = function() {
+			return new SwiftEvent(this.context, selector, action, data, handler, one);
+		}
 	}
 	Swift.prototype.on = function() {
-		/*
-			Attach an event handler function for one or more events to the selected elements.
-			.on( events [, selector] [, data], handler(eventObject) )
-			.on( events-map [, selector] [, data] )
-		*/
 		if (swift.checkTypes(arguments, ['string', 'string', 'object', 'function'])) {
 			var args = (function(events, selector, data, handler) {
 				var event_map = {};
@@ -193,13 +182,9 @@
 				});
 			});
 		}).apply(this, args);
+		return this;
 	}
 	Swift.prototype.off = function() {
-		/*
-			Remove an event handler.
-			.off( events [, selector] [, handler(eventObject)] )
-			.off( events-map [, selector] )
-		*/
 		if (swift.checkTypes(arguments, ['string', 'string', 'function'])) {
 			var args = (function(events, selector, handler) {
 				var event_map = {};
@@ -271,14 +256,8 @@
 				if (cb3) cb3.apply(this, arguments);
 			});
 		}).apply(this, arguments);
-		return this;
 	}
 	Swift.prototype.one = function() {
-		/*
-			Attach a handler to an event for the elements. The handler is executed at most once per element.
-			.one( events [, selector] [, data], handler(eventObject) )
-			.one( events-map [, selector] [, data] )
-		*/
 		this.isOne = true;
 		this.on.apply(this, arguments);
 		this.isOne = false;
@@ -318,66 +297,6 @@
 					return this.trigger(action);
 			}
 		})(action);
-	}
-	Swift.prototype.focus = function () {
-		if (this.length) {
-			this[0].focus();
-		}
-		return this;
-	}
-	Swift.prototype.attr = function () {
-		if (arguments.length == 1 && swift.type(arguments[0]) == 'Object') {
-			for (var name in arguments) {
-				this.attr(name, arguments[name]);
-			}
-			return this;
-		} else
-			var name = arguments[0],
-				value = arguments[1];
-		if (value !== undefined) {
-			this.each(function (i) {
-				if (name === 'checked' && 
-				    value === true && 
-				    this.tagName.toLowerCase() === 'input' && 
-				    this.getAttribute('type').toLowerCase() in ['checked', 'radio'])
-						this.setAttribute(name, 'checked');
-				else if (name === 'checked' && 
-				         value === false && 
-				         this.tagName.toLowerCase() === 'input' && 
-				         this.getAttribute('type').toLowerCase() in ['checked', 'radio'])
-						this.removeAttribute(name);
-				else if (name === 'selected' && 
-				         value === true && 
-				         this.tagName.toLowerCase() === 'option')
-						this.setAttribute(name, 'selected');
-				else if (name === 'selected' && 
-				         value === false && 
-				         this.tagName.toLowerCase() === 'option')
-						this.removeAttribute(name);
-				else
-					this.setAttribute(name, value);
-			});
-			return this;
-		} else {
-			if (this.length) {
-				if (name === 'tag')
-					return this[0].tagName.toLowerCase();
-				if (name === 'checked' && 
-				    this[0].tagName.toLowerCase() === 'input' && 
-				    this[0].getAttribute('type').toLowerCase() in ['checked', 'radio']
-				    ||
-				    name === 'selected' && 
-				    this[0].tagName.toLowerCase() === 'option')
-						return this[0].getAttribute(name) !== null;
-				return this[0].getAttribute(name) || undefined;
-			}
-		}
-	}
-	Swift.prototype.removeAttr = Swift.prototype.rmAttr = function (name) {
-		this.each(function () {
-			this.removeAttribute(name);
-		});
-		return this;
 	}
 	Swift.prototype.tag = function () {
 		return this.length ? this[0].tagName.toLowerCase() : undefined;
@@ -489,7 +408,7 @@
 	}
 	Swift.prototype.html = function (htmlStr) {
 		if (htmlStr !== undefined) {
-			this.each(function (i) {
+			this.each(function () {
 				this.innerHTML = htmlStr;
 			});
 			return this;
@@ -580,13 +499,6 @@
 		return innerHeight + marginLeftHeight + marginRightHeight + 'px';
 	}
 	Swift.prototype.offset = function () {
-		/*
-			offset()
-		        .offset() 
-		    offset( coordinates  )
-		        .offset( coordinates )
-		        .offset( function(index, coords) )
-		*/
 		if (this.length === 0)
 			return arguments.length ? this : undefined;
 		if (arguments.length == 0) {
@@ -624,21 +536,72 @@
 		}
 		return this;
 	}
-	// HERE
-	// HERE
-	// HERE
-	// HERE
-	// HERE
-	// HERE
 	Swift.prototype.data = function (name, value) {
-		if (arguments.length == 0) return swift.data[this.guid] || null;
-		if (arguments.length == 1) return swift.data[this.guid] ? swift.data[this.guid][name] || null : null;
-		if (arguments.length == 2) {
-			swift.data[this.guid = swift.generateGUID()] = value;
+		if (!this.length)
+			return name ? this : undefined;
+		if (arguments.length === 0) {
+			return global.data[this[0]];
+		} else if (swift.checkTypes(arguments, ['string'], true)) {
+			return global.data[this[0]] && global.data[this[0]][name];
+		} else if (swift.checkTypes(arguments, ['object'], true)) {
+			var values = arguments[0];
+			this.each(function() {
+				for (var name in values) {
+					$(this).data(name, values[name]);
+				}
+			});
+		} else if (arguments.length == 2) {
+			this.each(function() {
+				if (!global.data[this])
+					global.data[this] = {}
+				global.data[this][name] = value;
+			});
 		}
+		return this;
 	}
 	Swift.prototype.removeData = Swift.prototype.rmData = function (name) {
+		if (this.length) {
+			if (arguments.length === 0) {
+				this.each(function() {
+					if(global.data[this]) {
+						delete global.data[this];
+					}
+				});
+			} else if (typeof name === 'string') {
+				var names = name.trim().split(/\s+/);
+				this.each(function() {
+					if(global.data[this]) {
+						for (var i in names) {
+							delete global.data[this][names[i]];
+						}
+						if (swift.emptyObject($(this).data())) {
+							delete global.data[this];
+						}
+					}
+				});
+			} else if (typeof name === 'object') {
+				this.each(function() {
+					if(global.data[this]) {
+						for (var i=0; i<name.length; i++) {
+							delete global.data[this][name[i]];
+						}
+						if (swift.emptyObject($(this).data())) {
+							delete global.data[this];
+						}
+					}
+				});
+			}
+		}
 		if (swift.data[this.guid]) delete swift.data[this.guid];
+	}
+	Swift.prototype.quque = function() {
+		// TODO
+	}
+	Swift.prototype.dequque = function() {
+		// TODO
+	}
+	Swift.prototype.clearQueue = function() {
+		// TODO
 	}
 	Swift.prototype.add = function (other) {
 		if (other.length != undefined) {
@@ -650,6 +613,314 @@
 		}
 		return this;
 	}
+	Swift.prototype.pushStack = function() {
+		// TODO
+	}
+	Swift.prototype.serializeObject = function () {
+		if (this.length && this.tag() == 'form') {
+			var eles = this[0].elements,
+				data = {};
+			for (var i = 0; i < eles.length; i++) {
+				var ele = eles[i];
+				data[ele.name] = $(ele).val() || '';
+			}
+			return data;
+		}
+	}
+	Swift.prototype.serialize = function () {
+		if (this.length && this.tag() == 'form') {
+			var data = this.serializeObject(),
+				mappings = [];
+			for (var k in data)
+				mappings.push('%s=%s'.fs(k, encodeURIComponent(data[k])));
+			return mappings.join('&');
+		}
+	}
+	Swift.prototype.serializeArray = function () {
+		if (this.length && this.tag() == 'form') {
+			var data = this.serializeObject(),
+				mappings = [];
+			for (var k in data)
+				mappings.push({k: encodeURIComponent(data[k])});
+			return mappings;
+		}
+	}
+	Swift.prototype.after = function () {
+		if (swift.checkTypes(arguments, ['function'], true)) {
+			var callback = arguments[0];
+			this.each(function(i) {
+				$(this).after(callback.call(this, i));
+			});
+		} else {
+			for (var i=0; i<arguments.length; i++) {
+				var arg = arguments[i];
+				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) {
+					// ugly test argj is a element object
+					this.each(function() {
+						var children = swift.filter(this.parentNode.childNodes, function(ele) {
+							return ele.nodeType === 1;
+						});
+						if (children[children.length - 1] == this) {
+							this.parentNode.appendChild(arg.cloneNode(true));
+						} else {
+							var next = false;
+							for (var j=0; j<children.length; j++) {
+								if (children[j] === this) {
+									next = children[j+1];
+								}
+							}
+							this.parentNode.insertBefore(arg.cloneNode(true), next);
+						}
+					});
+				} else if (typeof arg === 'string') {
+					var eles = swift('<div></div>').html(arg)[0].childNodes;
+					this.after(eles);
+				} else if (arg['length']) {
+					for (var j=0; j<arg.length; j++) {
+						this.after(arg[j]);
+					}
+				}
+			}
+		}
+		return this;
+	}
+	Swift.prototype.append = function (other) {
+		if (!other)
+			throw new TypeError();
+		if (this.length) {
+			if (typeof other === 'string') {
+				var eles = swift('<div></div>').html(other)[0].childNodes;
+				this.append(eles);
+			} else if (typeof other === 'function') {
+				this.each(function(i) {
+					$(this).append(other.call(this, i, this.innerHTML));
+				});
+			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+				this.each(function() {
+					this.appendChild(other.cloneNode(true));
+				});
+			} else if (other.length) {
+				for (var i = 0; i < other.length; i++) {
+					this.append(other[i]);
+				}
+			}
+		}
+		return this;
+	}
+	Swift.prototype.appendTo = function (other) {
+		if (!other)
+			throw new TypeError();
+		if (this.length) {
+			if (typeof other === 'string') {
+				try {
+					var $ele = swift(other);
+					this.appendTo($ele);
+				} catch (e) {
+					var eles = swift.filter(swift('<div></div>').html(other)[0].childNodes, function(ele) {
+						return ele.nodeType === 1;
+					});
+					this.appendTo(eles);
+				}
+			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+				this.each(function() {
+					other.appendChild(this);
+				});
+			} else if (other.length) {
+				this.each(function() {
+					for (var i=0; i<other.length; i++) {
+						$(this).appendTo(other[i]);
+					}
+				});
+			}
+		}
+		return this;
+	}
+	Swift.prototype.before = function () {
+		if (swift.checkTypes(arguments, ['function'], true)) {
+			var callback = arguments[0];
+			this.each(function(i) {
+				$(this).before(callback.call(this, i));
+			});
+		} else {
+			for (var i=0; i<arguments.length; i++) {
+				var arg = arguments[i];
+				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) { // DO
+					// ugly test arg is a element object
+					this.each(function() {
+						this.parentNode.insertBefore(arg.cloneNode(true), this);
+					});
+				} else if (typeof arg === 'string') {
+					var eles = swift('<div></div>').html(arg)[0].childNodes;
+					this.before(eles);
+				} else if (arg['length']) {
+					for (var j=0; j<arg.length; j++) {
+						this.before(arg[j]);
+					}
+				}
+			}
+		}
+		return this;
+	}
+	Swift.prototype.attr = function () {
+		if (!arguments.length)
+			throw new TypeError();
+		if (this.length) {
+			if (swift.checkTypes(arguments, ['string'], true)) {
+				var name = arguments[0];
+				if (name === 'tag')
+					return this[0].tagName.toLowerCase();
+				if (name === 'checked' && 
+				    this[0].tagName.toLowerCase() === 'input' && 
+				    this[0].getAttribute('type').toLowerCase() in ['checked', 'radio']
+				    ||
+				    name === 'selected' && 
+				    this[0].tagName.toLowerCase() === 'option')
+						return this[0].getAttribute(name) !== null;
+				return this[0].getAttribute(name) || undefined;
+			} else if (swift.checkTypes(arguments, ['object'], true)) {
+				var attrs = arguments[0];
+				for (var name in attrs) {
+					this.attr(name, attrs[name]);
+				}
+			} else if (arguments.length === 2) {
+				var name = arguments[0];
+				if (typeof name === 'string') {
+					if (typeof arguments[1] === 'function') {
+						var callback = arguments[1];
+						this.each(function(i) {
+							$(this).attr(name, callback.call(this, i, $(this).attr(name)));
+						});
+					} else {
+						var value = arguments[1];
+						this.each(function () {
+							if (name === 'checked' && 
+							    value === true && 
+							    this.tagName.toLowerCase() === 'input' && 
+							    (this.getAttribute('type').toLowerCase() == 'checkbox' || 
+							    this.getAttribute('type').toLowerCase() == 'radio'))
+							
+								this.setAttribute(name, 'checked');
+							else if (name === 'checked' && 
+							         value === false && 
+							        (this.getAttribute('type').toLowerCase() == 'checkbox' || 
+							        this.getAttribute('type').toLowerCase() == 'radio'))
+							
+								this.removeAttribute(name);
+							else if (name === 'selected' && 
+							         value === true && 
+							         this.tagName.toLowerCase() === 'option')
+							
+								this.setAttribute(name, 'selected');
+							else if (name === 'selected' && 
+							         value === false && 
+							         this.tagName.toLowerCase() === 'option')
+							
+								this.removeAttribute(name);
+							else
+								this.setAttribute(name, value);
+						});
+					}
+				} else {
+					throw new TypeError();
+				}
+			}
+		}
+		return this;
+	}
+	Swift.prototype.removeAttr = Swift.prototype.rmAttr = function (name) {
+		if (!arguments.length)
+			throw new TypeError();
+		var names = name.split(/\s+/);
+		this.each(function () {
+			var ele = this;
+			names.forEach(function(name) {
+				ele.removeAttribute(name);
+			});
+		});
+		return this;
+	}
+	Swift.prototype.clone = function (withDataAndEvents, deepWithDataAndEvents) {
+		var newEles = [];
+		this.each(function () {
+			var newEle = this.cloneNode(true);
+			newEles.push(newEle);
+			if ((deepWithDataAndEvents || withDataAndEvents)) {
+				for (var i=0; i<global.events.length; i++) {
+					var swift_event = global.events[i];
+					if (swift_event.context === this) {
+						var new_swift_event = swift_event.clone();
+						new_swift_event.context = newEle;
+						new_swift_event.bind();
+						global.events.push(new_swift_event);
+					}
+				}
+				if (global.data[this]) {
+					global.data[newEle] = JSON.parse(JSON.stringify(global.data[this]));
+				}
+			}
+			if (deepWithDataAndEvents && $(this).children().length) {
+				var children = [];
+				$(this).children().each(function() {
+					children.push($(this).clone(true, true));
+				});
+				this.innerHTML = ''; //TODO change to $(this).empty();
+				$(this).append(children);
+			}
+		});
+		return swift(newEles);
+	}
+	Swift.prototype.empty = function() {
+		this.each(function() {
+			this.innerHTML = '';
+		});
+	}
+	Swift.prototype.detach = Swift.prototype.remove = function () {
+		this.each(function () {
+			this.parentNode.removeChild(this);
+		});
+		return this;
+	}
+	//HERE
+	//HERE
+	//HERE
+	//HERE
+	//HERE
+	//HERE
+	//HERE
+	Swift.prototype.next = function () {
+		if (this.length) return swift(this[0].nextSibling);
+		return swift([]);
+	}
+	Swift.prototype.prev = function () {
+		if (this.length) return swift(this[0].previousSibling);
+	}
+	Swift.prototype.parent = function (selector) {
+		if (!selector)
+			return this.length ? swift(this[0].parentElement) : undefined;
+		// TODO
+		// else {
+		// 	var current = this[0].parentNode;
+		// 	return swift(selector).filter(function() {
+		// 		while(current != document.body) {
+		// 			if (current == this) {
+		// 				return true;
+		// 			}
+		// 			current = current.parentNode;
+		// 		}
+		// 	});
+		// }
+	}
+	Swift.prototype.children = function () {
+		var children = [];
+		this.each(function() {
+			swift.filter(this.childNodes, function (ele) {
+				return ele.nodeType === 1;
+			}).forEach(function(child) {
+				children.push(child);
+			});
+		});
+		return swift(children);
+	}
 	Swift.prototype.not = function (callback) {
 		var orig = this,
 			targets = [];
@@ -659,71 +930,6 @@
 			}
 		});
 		return swift(targets);
-	}
-	Swift.prototype.width2 = function (value) {
-		if (this.length) {
-			if (value === undefined) {
-				return this[0].clientWidth;
-			} else {
-				var padding_left = this.css('padding-width-left') || 0;
-				var padding_right = this.css('padding-width-right') || 0;
-				return this.css('width', value - padding_left - padding_right);
-			}
-		}
-	}
-	Swift.prototype.width3 = function (value) {
-		if (this.length) {
-			if (value === undefined) {
-				return this[0].offsetWidth;
-			} else {
-				var border_left = this.css('border-width-left') || 0;
-				var border_right = this.css('border-width-right') || 0;
-				return this.width2('width', value - border_left - border_right);
-			}
-		}
-	}
-	Swift.prototype.width4 = function () {
-		if (this.length) return this[0].scrollWidth;
-	}
-	Swift.prototype.height = function (value) {
-		if (arguments.length) {
-			if (!swift.isInt(value)) {
-				return this.css('height', value);
-			} else {
-				return this.css('height', value + 'px');
-			}
-		} else if (this.length) {
-			var height = this.css('height');
-			if (height) return height;
-			var padding_left = this.css('padding-height-left') || 0;
-			var padding_right = this.css('padding-height-right') || 0;
-			return this[0].clientHeight - padding_left - padding_right;
-		}
-	}
-	Swift.prototype.height2 = function (value) {
-		if (this.length) {
-			if (value === undefined) {
-				return this[0].clientHeight;
-			} else {
-				var padding_left = this.css('padding-height-left') || 0;
-				var padding_right = this.css('padding-height-right') || 0;
-				return this.css('height', value - padding_left - padding_right);
-			}
-		}
-	}
-	Swift.prototype.height3 = function (value) {
-		if (this.length) {
-			if (value === undefined) {
-				return this[0].offsetHeight;
-			} else {
-				var border_left = this.css('border-height-left') || 0;
-				var border_right = this.css('border-height-right') || 0;
-				return this.height2('height', value - border_left - border_right);
-			}
-		}
-	}
-	Swift.prototype.height4 = function () {
-		if (this.length) return this[0].scrollHeight;
 	}
 	Swift.prototype.classes = function () {
 		if (this.length) return this[0].classList;
@@ -773,82 +979,6 @@
 			return this;
 		} else return this.innerText;
 	}
-	Swift.prototype.remove = function () {
-		this.each(function (i) {
-			this.parentNode.removeChild(this);
-		});
-		return this;
-	}
-	Swift.prototype.append = function (other) {
-		if (this.length) {
-			if (swift.type(other) == 'String') {
-				this.html(this.html() + other);
-			} else if (other.length != undefined) {
-				for (var i = 0; i < other.length; i++) {
-					this[0].appendChild(other[i]);
-				}
-			} else {
-				this[0].appendChild(other);
-			}
-		}
-		return this;
-	}
-	Swift.prototype.appendTo = function (other) {
-		if (this.length) for (var i = 0; i < this.length; i++)
-		(other.length != undefined ? other[0] : other).appendChild(this[i]);
-		return this;
-	}
-	Swift.prototype.after = function (other) {
-		if (this.length) {
-			var other = other.length != undefined ? other[0] : other;
-			for (var i = 0; i < this.length; i++)
-			other.parentElement.insertBefore(this[i], other.next());
-		}
-		return this;
-	}
-	Swift.prototype.before = function (other) {
-		if (this.length) {
-			var other = other.length != undefined ? other[0] : other;
-			for (var i = 0; i < this.length; i++)
-			other.parentElement.insertBefore(this[i], other);
-		}
-		return this;
-	}
-	Swift.prototype.next = function () {
-		if (this.length) return swift(this[0].nextSibling);
-		return swift([]);
-	}
-	Swift.prototype.prev = function () {
-		if (this.length) return swift(this[0].previousSibling);
-	}
-	Swift.prototype.clone = function (includeAll) {
-		var newTags = [];
-		this.each(function () {
-			newTags.push(this.cloneNode(includeAll));
-		});
-		return swift(newTags);
-	}
-	Swift.prototype.parent = function (selector) {
-		if (!selector)
-			return this.length ? swift(this[0].parentElement) : undefined;
-		// TODO
-		// else {
-		// 	var current = this[0].parentNode;
-		// 	return swift(selector).filter(function() {
-		// 		while(current != document.body) {
-		// 			if (current == this) {
-		// 				return true;
-		// 			}
-		// 			current = current.parentNode;
-		// 		}
-		// 	});
-		// }
-	}
-	Swift.prototype.children = function () {
-		return this.length ? swift.filter(this[0].childNodes, function () {
-			return this.tagName ? true : false;
-		}) : swift([]);
-	}
 	Swift.prototype.load = function (url) {
 		var mytag = this;
 		swift.get({
@@ -858,21 +988,6 @@
 			}
 		});
 		return this;
-	}
-	Swift.prototype.serialize = function (asObj) {
-		if (this.length && this.tag() == 'form') {
-			var eles = this[0].elements;
-			var data = {}
-			for (var i = 0; i < eles.length; i++) {
-				var ele = eles[i];
-				data[ele.name] = $(ele).val() || '';
-			}
-			if (asObj) return data;
-			var mappings = [];
-			for (var k in data)
-			mappings.push('%s=%s'.fs(k, encodeURIComponent(data[k])));
-			return mappings.join('&');
-		}
 	}
 	Swift.prototype.filter = function (callback) {
 		return swift.filter(this, callback);
@@ -955,10 +1070,12 @@
 			}
 			if (bntDiv.children().length) bntDiv.appendTo(dlg);
 		}
+		/*
 		if (param.resizable) { //TODO
 		}
 		if (param.movable) { //TODO
 		}
+		*/
 		dlg.css('z-index', '10000')
 			.css('position', 'absolute')
 			.appendTo(dlg.doc().body);
@@ -1152,8 +1269,20 @@
 		}
 		return new Swift(tags, selector, ctx);
 	}
-	swift.error = console ? console.error : alert;
-	swift.log = console ? console.log : alert;
+	// swift.error = console ? console.error : alert;
+	// swift.log = console ? console.log : alert;
+	swift.cloneObject = function(obj) {
+		return JSON.parse(JSON.stringify(obj));
+	}
+	swift.param = function(obj) {
+		// TODO
+	}
+	swift.emptyObject = function(obj) {
+		var empty = true;
+		for (var i in empty)
+			empty = false;
+		return empty;
+	}
 	swift.checkTypes = function(args, types, restricted) {
 		if (restricted && types.length !== args.length) return false;
 		return types.length === 0 || swift.filter(types, function(type, index) {
@@ -1533,7 +1662,7 @@
 		var protocol = protocol || window.location.href.startswith('https://') ? 'https' : 'http';
 		return "%s://%s%s".fs(protocol, location.host, swift.site_path(path));
 	}
-	swift.goto = function (url) {
+	swift.goTo = function (url) {
 		return window.document.location.href = url;
 	}
 	swift.extend = function (params) {
