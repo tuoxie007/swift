@@ -302,35 +302,13 @@
 		return this.length ? this[0].tagName.toLowerCase() : undefined;
 	}
 	Swift.prototype.val = function (value) {
-		if (value === undefined) {
-			if (this.length) {
-				if (this.tag() == 'select') {
-					var options = this.children();
-					for (var i = 0; i < options.length; i++) {
-						if (options[i].selected) {
-							return options[i].value || '';
-						}
-					}
-				} else if (this.tag() == 'input' && this.attr('type') == 'checkbox') {
-					var valueList = [];
-					for (var i = 0; i < this.length; i++)
-						if (this[i].tagName.toLowerCase() != 'input' || this[i].type == 'checkbox') 
-							return '';
-						else if (this[i].checked) valueList.push(this[i].value || '');
-							return valueList;
-				} else if (this.tag() == 'input' && this.attr('type') == 'radio') {
-					for (var i = 0; i < this.length; i++)
-						if (this[i].tagName.toLowerCase() != 'input' || this[i].type != 'radio') 
-							return '';
-						else if (this[i].checked) 
-							return this[i].value || '';
-				} else if (this.tag() == 'textarea') {
-					return arguments[1] ? $.htmlEncode(this[0].value || '') : this[0].value || '';
-				} else {
-					return this[0].value || '';
-				}
+		if (arguments.length) {
+			if (typeof value === 'function') {
+				this.each(function(index) {
+					$(this).val(value.call(this, index, $(this).val()));
+				});
+				return this;
 			}
-		} else {
 			if (this.tag() == 'select') {
 				var options = this.children();
 				for (var i = 0; i < options.length; i++) {
@@ -366,6 +344,34 @@
 				});
 			}
 			return this;
+		} else {
+			if (this.length) {
+				if (this.tag() == 'select') {
+					var options = this.children();
+					for (var i = 0; i < options.length; i++) {
+						if (options[i].selected) {
+							return options[i].value || '';
+						}
+					}
+				} else if (this.tag() == 'input' && this.attr('type') == 'checkbox') {
+					var valueList = [];
+					for (var i = 0; i < this.length; i++)
+						if (this[i].tagName.toLowerCase() != 'input' || this[i].type == 'checkbox') 
+							return '';
+						else if (this[i].checked) valueList.push(this[i].value || '');
+							return valueList;
+				} else if (this.tag() == 'input' && this.attr('type') == 'radio') {
+					for (var i = 0; i < this.length; i++)
+						if (this[i].tagName.toLowerCase() != 'input' || this[i].type != 'radio') 
+							return '';
+						else if (this[i].checked) 
+							return this[i].value || '';
+				} else if (this.tag() == 'textarea') {
+					return arguments[1] ? $.htmlEncode(this[0].value || '') : this[0].value || '';
+				} else {
+					return this[0].value || '';
+				}
+			}
 		}
 	}
 	Swift.prototype.id = function (value) {
@@ -375,14 +381,23 @@
 		return this.length && this[0].classList.contains(name);
 	}
 	Swift.prototype.addClass = function (name) {
+		var names = name.split(/\s+/);
 		this.each(function (i) {
-			this.classList.add(name);
+			var ele = this;
+			names.forEach(function(name) {
+				ele.classList.add(name);
+			});
 		});
 		return this;
 	}
 	Swift.prototype.removeClass = Swift.prototype.rmClass = function (name) {
-		this.each(function () {
-			this.classList.remove(name);
+		var names = name.split(/\s+/);
+		this.each(function (i) {
+			var ele = this;
+			names.forEach(function(name) {
+				ele.classList.add(name);
+				ele.classList.remove(name);
+			});
 		});
 		return this;
 	}
@@ -406,19 +421,29 @@
 		}
 		return this;
 	}
-	Swift.prototype.html = function (htmlStr) {
-		if (htmlStr !== undefined) {
-			this.each(function () {
-				this.innerHTML = htmlStr;
-			});
+	Swift.prototype.html = function () {
+		if (arguments.length) {
+			if (typeof arguments[0] === 'function') {
+				var callback = arguments[0];
+				this.each(function (i) {
+					this.innerHTML = callback.call(this, i, this.innerHTML);
+				});
+			} else {
+				var htmlStr = arguments[0];
+				this.each(function () {
+					this.innerHTML = htmlStr;
+				});
+			}
 			return this;
-		} else if (this.length)
+		} else if (this.length) {
 			return this[0].innerHTML;
+		} else {
+			return undefined;
+		}
 	}
 	Swift.prototype.css = function (name) {
 		if (swift.checkTypes(arguments, ['string'], true)) {
 			if (!this.length) return undefined;
-			var name = swift.styleName(name);
 			if (this[0].currentStyle)
 				return this[0].currentStyle[swift.styleName(name)];
 			else if (document.defaultView.getComputedStyle)
@@ -461,16 +486,16 @@
 	}
 	Swift.prototype.innerWidth = function () {
 		var width = swift.pixelAsInt(this.width());
-		var paddingLeftWidth = swift.pixelAsInt(this.css('padding-left-width'));
-		var paddingRightWidth = swift.pixelAsInt(this.css('padding-right-width'));
-		var borderLeftWidth = swift.pixelAsInt(this.css('border-left-width'));
-		var borderRightWidth = swift.pixelAsInt(this.css('border-right-width'));
+		var paddingLeftWidth = swift.pixelAsInt(this.css('padding-left')) || 0;
+		var paddingRightWidth = swift.pixelAsInt(this.css('padding-right')) || 0;
+		var borderLeftWidth = swift.pixelAsInt(this.css('border-left-width')) || 0;
+		var borderRightWidth = swift.pixelAsInt(this.css('border-right-width')) || 0;
 		return width + paddingLeftWidth + paddingRightWidth + borderLeftWidth + borderRightWidth + 'px';
 	}
 	Swift.prototype.outterWidth = function () {
 		var innerWidth = swift.pixelAsInt(this.innerWidth());
-		var marginLeftWidth = swift.pixelAsInt(this.css('margin-left-width'));
-		var marginRightWidth = swift.pixelAsInt(this.css('margin-right-width'));
+		var marginLeftWidth = swift.pixelAsInt(this.css('margin-left')) || 0;
+		var marginRightWidth = swift.pixelAsInt(this.css('margin-right')) || 0;
 		return innerWidth + marginLeftWidth + marginRightWidth + 'px';
 	}
 	Swift.prototype.height = function (value) {
@@ -486,16 +511,16 @@
 	}
 	Swift.prototype.innerHeight = function () {
 		var height = swift.pixelAsInt(this.height());
-		var paddingLeftHeight = swift.pixelAsInt(this.css('padding-left-height'));
-		var paddingRightHeight = swift.pixelAsInt(this.css('padding-right-height'));
-		var borderLeftHeight = swift.pixelAsInt(this.css('border-left-height'));
-		var borderRightHeight = swift.pixelAsInt(this.css('border-right-height'));
+		var paddingLeftHeight = swift.pixelAsInt(this.css('padding-left')) || 0;
+		var paddingRightHeight = swift.pixelAsInt(this.css('padding-right')) || 0;
+		var borderLeftHeight = swift.pixelAsInt(this.css('border-left-width')) || 0;
+		var borderRightHeight = swift.pixelAsInt(this.css('border-right-width')) || 0;
 		return height + paddingLeftHeight + paddingRightHeight + borderLeftHeight + borderRightHeight + 'px';
 	}
 	Swift.prototype.outterHeight = function () {
 		var innerHeight = swift.pixelAsInt(this.innerHeight());
-		var marginLeftHeight = swift.pixelAsInt(this.css('margin-left-height'));
-		var marginRightHeight = swift.pixelAsInt(this.css('margin-right-height'));
+		var marginLeftHeight = swift.pixelAsInt(this.css('margin-left')) || 0;
+		var marginRightHeight = swift.pixelAsInt(this.css('margin-right')) || 0;
 		return innerHeight + marginLeftHeight + marginRightHeight + 'px';
 	}
 	Swift.prototype.offset = function () {
@@ -504,10 +529,17 @@
 		if (arguments.length == 0) {
 			var ele = this[0],
 				curLeft = curTop = 0;
-			do {
+			if (!ele.offsetParent) {
 				curLeft += ele.offsetLeft;
 				curTop += ele.offsetTop;
-			} while (ele = ele.offsetParent);
+				curLeft += swift.pixelAsInt($(ele).css('margin-left')) || 0;
+				curTop += swift.pixelAsInt($(ele).css('margin-top')) || 0;
+			} else {
+				do {
+					curLeft += ele.offsetLeft;
+					curTop += ele.offsetTop;
+				} while (ele = ele.offsetParent);
+			}
 			return {left: curLeft, top: curTop};
 		} else if (typeof arguments[0] === 'object') {
 			var coordinates = arguments[0];
@@ -535,6 +567,124 @@
 			});
 		}
 		return this;
+	}
+	Swift.prototype.position = function () {
+		if (this.length) {
+			var ele = this[0],
+				curLeft = curTop = 0;
+			do {
+				curLeft += ele.offsetLeft;
+				curTop += ele.offsetTop;
+			} while (ele = ele.offsetParent);
+			return {left: curLeft, top: curTop};
+		}
+		return this;
+	}
+	Swift.prototype.scrollLeft = function() {
+		if (this.length) {
+			var ele = this[0];
+			if (arguments.length) {
+				var value = arguments[0];
+				if (typeof value === 'string' && value.endswith('px'))
+					value = swift.pixelAsInt(value);
+				if (ele === document.body || ele === window) {
+					if (window.pageXOffset)
+						window.pageXOffset = value;
+					if (document.documentElement)
+						document.documentElement.scrollLeft = value;
+					if (document.body)
+						document.body.scrollLeft = value;
+				} else {
+					if (ele.scrollLeft !== undefined)
+						ele.scrollLeft = value;
+					if (ele.pageXOffset !== undefined)
+						ele.pageXOffset = value;
+				}
+				return this;
+			} else {
+				if (ele === document.body || ele === window) {
+					return f_scrollLeft(this[0]);
+				} else {
+					if (ele.scrollLeft !== undefined)
+						return ele.scrollLeft;
+					if (ele.pageXOffset !== undefined)
+						return ele.pageXOffset;
+					return undefined;
+				}
+			}
+		} else {
+			return null;
+		}
+	}
+	Swift.prototype.scrollTop = function() {
+		if (this.length) {
+			var ele = this[0];
+			if (arguments.length) {
+				var value = arguments[0];
+				if (typeof value === 'string' && value.endswith('px'))
+					value = swift.pixelAsInt(value);
+				if (ele === document.body || ele === window) {
+					if (window.pageYOffset)
+						window.pageYOffset = value;
+					if (document.documentElement)
+						document.documentElement.scrollTop = value;
+					if (document.body)
+						document.body.scrollTop = value;
+				} else {
+					if (ele.scrollTop !== undefined)
+						ele.scrollTop = value;
+					if (ele.pageYOffset !== undefined)
+						ele.pageYOffset = value;
+				}
+				return this;
+			} else {
+				if (ele === document.body || ele === window) {
+					return f_scrollTop(this[0]);
+				} else {
+					if (ele.scrollTop !== undefined)
+						return ele.scrollTop;
+					if (ele.pageYOffset !== undefined)
+						return ele.pageYOffset;
+					return undefined;
+				}
+			}
+		} else {
+			return null;
+		}
+	}
+	function f_clientWidth() {
+		return f_filterResults (
+			window.innerWidth ? window.innerWidth : 0,
+			document.documentElement ? document.documentElement.clientWidth : 0,
+			document.body ? document.body.clientWidth : 0
+		);
+	}
+	function f_clientHeight() {
+		return f_filterResults (
+			window.innerHeight ? window.innerHeight : 0,
+			document.documentElement ? document.documentElement.clientHeight : 0,
+			document.body ? document.body.clientHeight : 0
+		);
+	}
+	function f_scrollLeft() {
+		return f_filterResults (
+			window.pageXOffset ? window.pageXOffset : 0,
+			document.documentElement ? document.documentElement.scrollLeft : 0,
+			document.body ? document.body.scrollLeft : 0
+		);
+	}
+	function f_scrollTop() {
+		return f_filterResults (
+			window.pageYOffset ? window.pageYOffset : 0,
+			document.documentElement ? document.documentElement.scrollTop : 0,
+			document.body ? document.body.scrollTop : 0
+		);
+	}
+	function f_filterResults(n_win, n_docel, n_body) {
+		var n_result = n_win ? n_win : 0;
+		if (n_docel && (!n_result || (n_result > n_docel)))
+			n_result = n_docel;
+		return n_body && (!n_result || (n_result > n_body)) ? n_body : n_result;
 	}
 	Swift.prototype.data = function (name, value) {
 		if (!this.length)
@@ -656,12 +806,12 @@
 				var arg = arguments[i];
 				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) {
 					// ugly test argj is a element object
-					this.each(function() {
+					this.each(function(index) {
 						var children = swift.filter(this.parentNode.childNodes, function(ele) {
 							return ele.nodeType === 1;
 						});
 						if (children[children.length - 1] == this) {
-							this.parentNode.appendChild(arg.cloneNode(true));
+							this.parentNode.appendChild(index ? arg.cloneNode(true) : arg);
 						} else {
 							var next = false;
 							for (var j=0; j<children.length; j++) {
@@ -669,7 +819,7 @@
 									next = children[j+1];
 								}
 							}
-							this.parentNode.insertBefore(arg.cloneNode(true), next);
+							this.parentNode.insertBefore(index ? arg.cloneNode(true) : arg, next);
 						}
 					});
 				} else if (typeof arg === 'string') {
@@ -680,57 +830,6 @@
 						this.after(arg[j]);
 					}
 				}
-			}
-		}
-		return this;
-	}
-	Swift.prototype.append = function (other) {
-		if (!other)
-			throw new TypeError();
-		if (this.length) {
-			if (typeof other === 'string') {
-				var eles = swift('<div></div>').html(other)[0].childNodes;
-				this.append(eles);
-			} else if (typeof other === 'function') {
-				this.each(function(i) {
-					$(this).append(other.call(this, i, this.innerHTML));
-				});
-			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
-				this.each(function() {
-					this.appendChild(other.cloneNode(true));
-				});
-			} else if (other.length) {
-				for (var i = 0; i < other.length; i++) {
-					this.append(other[i]);
-				}
-			}
-		}
-		return this;
-	}
-	Swift.prototype.appendTo = function (other) {
-		if (!other)
-			throw new TypeError();
-		if (this.length) {
-			if (typeof other === 'string') {
-				try {
-					var $ele = swift(other);
-					this.appendTo($ele);
-				} catch (e) {
-					var eles = swift.filter(swift('<div></div>').html(other)[0].childNodes, function(ele) {
-						return ele.nodeType === 1;
-					});
-					this.appendTo(eles);
-				}
-			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
-				this.each(function() {
-					other.appendChild(this);
-				});
-			} else if (other.length) {
-				this.each(function() {
-					for (var i=0; i<other.length; i++) {
-						$(this).appendTo(other[i]);
-					}
-				});
 			}
 		}
 		return this;
@@ -746,8 +845,8 @@
 				var arg = arguments[i];
 				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) { // DO
 					// ugly test arg is a element object
-					this.each(function() {
-						this.parentNode.insertBefore(arg.cloneNode(true), this);
+					this.each(function(index) {
+						this.parentNode.insertBefore(index ? arg.cloneNode(true) : arg, this);
 					});
 				} else if (typeof arg === 'string') {
 					var eles = swift('<div></div>').html(arg)[0].childNodes;
@@ -761,6 +860,120 @@
 		}
 		return this;
 	}
+	var obj = {
+		insertBefore: 'before',
+		insertAfter: 'after'
+	};
+	for (var name in obj) {
+		(function(name, orig) {
+			Swift.prototype[name] = function(target) {
+				if (typeof target === 'string') {
+					var eles = $('<div></div>').html(target)[0].childNodes;
+					return this[name](eles);
+				} else if (typeof target === 'object' && target.nodeType && target.nodeName) {
+					return this[name]([target]);
+				} else if (target.length) {
+					var newSet = [];
+					var src = this;
+					swift(target).each(function(index) {
+						for (var i=0; i<src.length; i++) {
+							var ele = index ? src[i].cloneNode(true) : src[i];
+							newSet.push(ele);
+							swift(this)[orig](ele);
+						}
+					});
+					return newSet;
+				}
+			}
+		})(name, obj[name]);
+	}
+	obj = null;
+	Swift.prototype.append = function (other) {
+		if (!other)
+			throw new TypeError();
+		if (this.length) {
+			if (typeof other === 'string') {
+				var eles = swift('<div></div>').html(other)[0].childNodes;
+				this.append(eles);
+			} else if (typeof other === 'function') {
+				this.each(function(i) {
+					$(this).append(other.call(this, i, this.innerHTML));
+				});
+			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+				this.each(function(index) {
+					this.appendChild(index ? other.cloneNode(true) : other);
+				});
+			} else if (other.length) {
+				for (var i = 0; i < other.length; i++) {
+					this.append(other[i]);
+				}
+			}
+		}
+		return this;
+	}
+	Swift.prototype.prepend = function (other) {
+		if (!other)
+			throw new TypeError();
+		if (this.length) {
+			if (typeof other === 'string') {
+				var eles = swift('<div></div>').html(other)[0].childNodes;
+				this.prepend(eles);
+			} else if (typeof other === 'function') {
+				this.each(function(i) {
+					$(this).prepend(other.call(this, i, this.innerHTML));
+				});
+			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+				this.each(function(index) {
+					this.insertBefore(index ? other.cloneNode(true) : other, this.firstChild);
+				});
+			} else if (other.length) {
+				for (var i = 0; i < other.length; i++) {
+					this.prepend(other[i]);
+				}
+			}
+		}
+		return this;
+	}
+	var obj = {
+		appendTo: 'append',
+		prependTo: 'prepend'
+	};
+	for (var name in obj) {
+		(function(name, orig) {
+			Swift.prototype[name] = function (other) {
+				if (!other)
+					throw new TypeError();
+				if (this.length) {
+					if (typeof other === 'string') {
+						try {
+							var $ele = swift(other);
+							this[name]($ele);
+						} catch (e) {
+							var eles = swift.filter(swift('<div></div>').html(other)[0].childNodes, function(ele) {
+								return ele.nodeType === 1;
+							});
+							this[name](eles);
+						}
+					} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+							this[name]([other]);
+					} else if (other.length) {
+						var newSet = [];
+						var src = this;
+						swift(other).each(function(index) {
+							for (var i=0; i<src.length; i++) {
+								var ele = index ? src[i].cloneNode(true) : src[i];
+								newSet.push(ele);
+								swift(this)[orig](ele);
+							}
+						});
+						return newSet;
+					}
+				}
+				return this;
+			}
+		})(name, obj[name]);
+	}
+	obj = null;
 	Swift.prototype.attr = function () {
 		if (!arguments.length)
 			throw new TypeError();
@@ -880,13 +1093,135 @@
 		});
 		return this;
 	}
-	//HERE
-	//HERE
-	//HERE
-	//HERE
-	//HERE
-	//HERE
-	//HERE
+	Swift.prototype.wrap = function (wrapper) {
+		if (this.length) {
+			if (arguments.length) {
+				if (typeof wrapper === 'function') {
+					this.each(function(i) {
+						var ele = wrapper.call(this, i);
+						$(this).wrap(ele);
+					});
+				} else {
+					wrapper = swift(wrapper).clone();
+					while (true) {
+						if (wrapper.children().length == 0) { // inmost element as real wrapper
+							this.each(function() {
+								var ele = wrapper.clone(true);
+								$(this).after(ele).appendTo(ele);
+							});
+							break;
+						} else if (wrapper.children().length == 1) {
+							wrapper = $(wrapper.children()[0]);
+						} else {
+							throw new Error('Invalid Argument, argument should contain only one inmost elemen');
+						}
+					}
+				}
+				return this;
+			} else {
+				throw new Error('Invalid Argument');
+			}
+		}
+		return this;
+	}
+	Swift.prototype.unwrap = function () {
+		if (this.length) {
+			this.each(function() {
+				var parent = this.parentNode;
+				if (parent) {
+					$(this).insertAfter(parent);
+					$(parent).remove();
+				}
+			});
+		}
+		return this;
+	}
+	Swift.prototype.wrapInner = function (wrapper) {
+		if (this.length) {
+			if (arguments.length) {
+				this.each(function(i) {
+					if (typeof wrapper === 'function') {
+						wrapper = wrapper.call(this, i);
+					}
+					wrapper = $(wrapper).clone();
+					var oldChildren = Array.prototype.slice.call(this.childNodes, 0);
+					$(this).append(wrapper);
+					while (true) {
+						if (wrapper.children().length == 0) { // inmost element as real wrapper
+							$(oldChildren).appendTo(wrapper);
+							break;
+						} else if (wrapper.children().length == 1) {
+							wrapper = $(wrapper.children()[0]);
+						} else {
+							throw new Error('Invalid Argument');
+						}
+					}
+				});
+			} else {
+				throw new Error('Invalid Argument');
+			}
+		}	
+		return this;
+	}
+	Swift.prototype.wrapAll = function (wrapper) {
+		if (this.length) {
+			if (arguments.length) {
+				if (typeof wrapper === 'function') {
+					this.each(function(i) {
+						var ele = wrapper.call(this, i);
+						$(this).wrap(ele);
+					});
+				} else {
+					wrapper = swift(wrapper).clone();
+					while (true) {
+						if (wrapper.children().length == 0) { // inmost element as real wrapper
+							var ele = wrapper.clone(true);
+							$(this[0]).after(ele);
+							$(this).appendTo(ele);
+							break;
+						} else if (wrapper.children().length == 1) {
+							wrapper = $(wrapper.children()[0]);
+						} else {
+							throw new Error('Invalid Argument');
+						}
+					}
+				}
+			} else {
+				throw new Error('Invalid Argument');
+			}
+		}	
+		return this;
+	}
+	Swift.prototype.replaceAll = function (replacement) {
+		var replacer = this.remove(),
+			replacement = $(replacement),
+			replaced = replacer.get();
+		replacement.each(function (i) {
+			if (1 == replacer.length && this === replacer[0])
+				return;
+			var replacementCopy = replacer.clone();
+			$(this).after(replacementCopy).remove();
+			replaced.add(replacementCopy);
+		});
+		return replaced;
+	}
+	Swift.prototype.replaceWith = function (replacer) {
+		if (arguments.length) {
+			if (typeof replacer == 'function') {
+				this.each(function(i) {
+					replacer = replacer.call(this, i);
+					$(this).after(replacer).remove();
+				});
+			} else {
+				replacer = $(replacer).remove();
+				this.each(function() {
+					if (this.parentNode)
+						$(this).after(replacer.clone()).remove();
+				});
+			}
+		}
+		return this;
+	}
 	Swift.prototype.next = function () {
 		if (this.length) return swift(this[0].nextSibling);
 		return swift([]);
@@ -971,13 +1306,27 @@
 			});
 		});
 	}
-	Swift.prototype.text = function (textStr) {
-		if (textStr !== undefined) {
-			this.each(function (i) {
-				this.innerText = textStr;
-			});
+	Swift.prototype.text = function (text) {
+		if (arguments.length) {
+			if (typeof text == 'function') {
+				this.each(function(i) {
+					$(this).text(text.call(this, i, $(this).text()));
+				});
+			} else {
+				this.each(function() {
+					this.textContent = text;
+				});
+			}
 			return this;
-		} else return this.innerText;
+		} else {
+			var text = '';
+			this.each(function() {
+				Array.prototype.forEach.call(this.childNodes, function(node) {
+					text += node.textContent;
+				});
+			});
+			return text;
+		}
 	}
 	Swift.prototype.load = function (url) {
 		var mytag = this;
@@ -1168,9 +1517,6 @@
 			}
 		}
 	}
-	Swift.prototype.pixelAsInt = function(pixelStr) {
-		return parseInt(pixelStr.substr(0, pixelStr.length-2));
-	}
 	Swift.prototype.em2px = function () {
 		if (!this.length) return;
 		if (this[0].currentStyle) {
@@ -1195,8 +1541,11 @@
 		return swift(this.slice(i, i + 1));
 	}
 	Swift.prototype.get = function (i) {
-		if (this.length > i)
-			return this[i];
+		if (arguments.length) {
+			if (this.length > i)
+				return this[i];
+		}
+		return this.slice(0);
 	}
 	Swift.prototype.layout = function () {
 		if (!this.length) return null;
@@ -1243,7 +1592,14 @@
 		if (type == "String") {
 			var matched = /^<(\w+)\s*\/?>(?:<\/\1>)?$/.exec(selector);
 			if (matched) var tags = [window.document.createElement(matched[1])];
-			else var tags = document.querySelectorAll.call(ctx, selector);
+			else {
+				matched = /^(?:[^#<]*(<[\w\W]+>)[^>]*$|#([\w\-]*)$)/.exec(selector);
+				if (matched && matched[1]) {
+					var tmpDiv = swift('<div></div>'),
+						tags = tmpDiv.html(matched[1])[0].childNodes;
+				}
+				else var tags = document.querySelectorAll.call(ctx, selector);
+			}
 		} else if (selector instanceof HTMLElement || selector instanceof HTMLDocument || selector === window) var tags = [selector];
 		else if (type == 'Array' || type == 'NodeList') var tags = selector;
 		else if (type == 'Swift') return selector;
@@ -1271,6 +1627,9 @@
 	}
 	// swift.error = console ? console.error : alert;
 	// swift.log = console ? console.log : alert;
+	swift.pixelAsInt = function(pixelStr) {
+		return parseInt(pixelStr.substr(0, pixelStr.length-2));
+	}
 	swift.cloneObject = function(obj) {
 		return JSON.parse(JSON.stringify(obj));
 	}
