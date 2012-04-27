@@ -1052,6 +1052,61 @@
 		});
 		return this;
 	}
+	Swift.prototype.andSelf = function () {
+		
+	}
+	Swift.prototype.closet = function () {
+		
+	}
+	Swift.prototype.contents = function () {
+		
+	}
+	Swift.prototype.end = function () {
+		
+	}
+	Swift.prototype.eq = function () {
+		
+	}
+	Swift.prototype.first = function () {
+		
+	}
+	Swift.prototype.has = function () {
+		
+	}
+	Swift.prototype.is = function () {
+		
+	}
+	Swift.prototype.last = function () {
+		
+	}
+	Swift.prototype.map = function () {
+		
+	}
+	Swift.prototype.nextAll = function () {
+		
+	}
+	Swift.prototype.nextUtil = function () {
+		
+	}
+	Swift.prototype.offsetParent = function () {
+		
+	}
+	Swift.prototype.parents = function () {
+		
+	}
+	Swift.prototype.parentUtil = function () {
+		
+	}
+	Swift.prototype.prevAll = function () {
+		
+	}
+	Swift.prototype.prevUtil = function () {
+		
+	}
+	Swift.prototype.siblings = function () {
+		
+	}
+	
 	Swift.prototype.clone = function (withDataAndEvents, deepWithDataAndEvents) {
 		var newEles = [];
 		this.each(function () {
