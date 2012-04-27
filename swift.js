@@ -1135,37 +1135,40 @@
 	Swift.prototype.nextAll = function () {
 		
 	}
-	Swift.prototype.next = function (selector) {
-		if (selector) {
-			var eles = $(selector);
-			var ret = [];
-			this.each(function() {
-				var ele = this;
-				while(ele = ele.nextSibling) {
-					if (ele.nodeType == 1 && $.inArray(ele, eles)) {
-						ret.push(ele);
-						break;
-					}
+	var obj = ['next', 'prev'];
+	obj.forEach(function(name) {
+		(function(name) {
+			Swift.prototype[name] = function (selector) {
+				if (selector) {
+					var eles = $(selector);
+					var ret = [];
+					this.each(function() {
+						var ele = this;
+						while(ele = ele[name+'Sibling']) {
+							if (ele.nodeType == 1 && $.inArray(ele, eles)) {
+								ret.push(ele);
+								break;
+							}
+						}
+					});
+					return $(ret);
+				} else {
+					var ret = [];
+					this.each(function() {
+						var ele = this;
+						while(ele = ele[name+'Sibling']) {
+							if (ele.nodeType == 1) {
+								ret.push(ele);
+								break;
+							}
+						}
+					});
+					return $(ret);
 				}
-			});
-			return $(ret);
-		} else {
-			var ret = [];
-			this.each(function() {
-				var ele = this;
-				while(ele = ele.nextSibling) {
-					if (ele.nodeType == 1) {
-						ret.push(ele);
-						break;
-					}
-				}
-			});
-			return $(ret);
-		}
-	}
-	Swift.prototype.prev = function () {
-		if (this.length) return $(this[0].previousSibling);
-	}
+			}
+		})(name);
+	});
+	obj = null;
 	Swift.prototype.nextAll = function () {
 		
 	}
