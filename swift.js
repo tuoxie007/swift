@@ -53,7 +53,7 @@
 		this.selector = selector;
 		this.swift = "2.0";
 		
-		this.stack = [];
+		this.stack = context ? [{'swift': new Swift([context])}] : []
 	}
 	// extend Swift prototype
 	Swift.prototype = Array.prototype;
@@ -61,31 +61,32 @@
 	Swift.prototype.find = function (arg1) { // TEST
 		var found = undefined;
 		if (!this.length)
-			found = swift([]);
+			found = $([]);
 		else if (typeof arg1 === 'string') { // .find(selector)
-			found = swift([]);
+			found = $([]);
 			this.each(function() {
-				found.add(swift(arg1, this));
+				$(arg1, this).each(function() {
+					found.push(this);
+				});
 			});
-		} else if (arg1.swift) { // .find(swift object)
-			found = swift(swift.filter(this, function(item) {
-				return $.inArray(item, arg1);
-			}));
-		} else if (arg1.length > 0) { // .find(elements)
-			found = swift(swift.filter(this, function(item) {
-				return $.inArray(item, arg1);
-			}));
+		} else if (arg1.length && arg1[0]) { // .find(swift object) or .find(elements)
+			var children = this.children();
+			if (children) {
+				found = $(children.filter(function() {
+					return $.inArray(this, arg1);
+				}).get().concat(children.find(arg1).get()));
+			} else {
+				found = $([]);
+			}
 		} else { // .find(element)
-			foudn swift(swift.filter(this, function(item) {
-				return item == arg1;
-			}));
+			return this.find([arg1]);
 		}
-		return this.pushStack(found, 'find', arg1);
+		return this.pushStack(found, 'find', arguments);
 	}
 	Swift.prototype.pushStack = function(elements, method, args) {
 		var newSwift = $(elements);
 		newSwift.stack = this.stack.slice(0);
-		newSwift.stack.push({'elemetns': this.get(), 'method': method, 'arguments': args});
+		newSwift.stack.push({'swift': this, 'method': method, 'arguments': args});
 		return newSwift;
 	}
 	Swift.prototype.each = function (callback) {
@@ -767,20 +768,28 @@
 			other = $(other, context);
 		else
 			other = $(other);
+		var newObj = $(this.get());
 		if (other.length != undefined) {
 			for (var i = 0; i < other.length; i++) {
-				this.push(other[i]);
+				if ( ! newObj.has(other[i]))
+					newObj.push(other[i]);
 			}
 		} else {
-			this.push(other);
+			if ( ! newObj.has(other))
+				newObj.push(other);
 		}
-		return this;
+		return this.pushStack(newObj, 'add', arguments);
 	}
 	Swift.prototype.andSelf = function() {
-		
-	}
-	Swift.prototype.pushStack = function() {
-		// TODO
+		var lastSwift = this.stack.slice(-1)[0];
+		if (lastSwift) {
+			lastSwift = lastSwift.swift;
+			for (var i = 0; i < lastSwift.length; i++) {
+				if ( ! this.has(lastSwift[i]))
+					this.push(lastSwift[i]);
+			}
+		}
+		return this;
 	}
 	Swift.prototype.serializeObject = function () {
 		if (this.length && this.tag() == 'form') {
@@ -823,9 +832,7 @@
 				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) {
 					// ugly test argj is a element object
 					this.each(function(index) {
-						var children = swift.filter(this.parentNode.childNodes, function(ele) {
-							return ele.nodeType === 1;
-						});
+						var children = this.parentNode.childNodes;
 						if (children[children.length - 1] == this) {
 							this.parentNode.appendChild(index ? arg.cloneNode(true) : arg);
 						} else {
@@ -839,7 +846,7 @@
 						}
 					});
 				} else if (typeof arg === 'string') {
-					var eles = swift('<div></div>').html(arg)[0].childNodes;
+					var eles = $('<div></div>').html(arg)[0].childNodes;
 					this.after(eles);
 				} else if (arg['length']) {
 					for (var j=0; j<arg.length; j++) {
@@ -865,7 +872,7 @@
 						this.parentNode.insertBefore(index ? arg.cloneNode(true) : arg, this);
 					});
 				} else if (typeof arg === 'string') {
-					var eles = swift('<div></div>').html(arg)[0].childNodes;
+					var eles = $('<div></div>').html(arg)[0].childNodes;
 					this.before(eles);
 				} else if (arg['length']) {
 					for (var j=0; j<arg.length; j++) {
@@ -891,11 +898,11 @@
 				} else if (target.length) {
 					var newSet = [];
 					var src = this;
-					swift(target).each(function(index) {
+					$(target).each(function(index) {
 						for (var i=0; i<src.length; i++) {
 							var ele = index ? src[i].cloneNode(true) : src[i];
 							newSet.push(ele);
-							swift(this)[orig](ele);
+							$(this)[orig](ele);
 						}
 					});
 					return newSet;
@@ -909,7 +916,7 @@
 			throw new TypeError();
 		if (this.length) {
 			if (typeof other === 'string') {
-				var eles = swift('<div></div>').html(other)[0].childNodes;
+				var eles = $('<div></div>').html(other)[0].childNodes;
 				this.append(eles);
 			} else if (typeof other === 'function') {
 				this.each(function(i) {
@@ -932,7 +939,7 @@
 			throw new TypeError();
 		if (this.length) {
 			if (typeof other === 'string') {
-				var eles = swift('<div></div>').html(other)[0].childNodes;
+				var eles = $('<div></div>').html(other)[0].childNodes;
 				this.prepend(eles);
 			} else if (typeof other === 'function') {
 				this.each(function(i) {
@@ -962,10 +969,10 @@
 				if (this.length) {
 					if (typeof other === 'string') {
 						try {
-							var $ele = swift(other);
+							var $ele = $(other);
 							this[name]($ele);
 						} catch (e) {
-							var eles = swift.filter(swift('<div></div>').html(other)[0].childNodes, function(ele) {
+							var eles = swift.filter($('<div></div>').html(other)[0].childNodes, function(ele) {
 								return ele.nodeType === 1;
 							});
 							this[name](eles);
@@ -975,11 +982,11 @@
 					} else if (other.length) {
 						var newSet = [];
 						var src = this;
-						swift(other).each(function(index) {
+						$(other).each(function(index) {
 							for (var i=0; i<src.length; i++) {
 								var ele = index ? src[i].cloneNode(true) : src[i];
 								newSet.push(ele);
-								swift(this)[orig](ele);
+								$(this)[orig](ele);
 							}
 						});
 						return newSet;
@@ -1068,32 +1075,59 @@
 		});
 		return this;
 	}
-	Swift.prototype.andSelf = function () {
-		
-	}
-	Swift.prototype.closet = function () {
-		
+	Swift.prototype.closest = function (selector, context) {
+		if (selector) {
+			var eles = $(selector, context),
+				foundEles = [];
+			this.each(function() {
+				var found = undefined;
+				if ($.inArray(this, eles)) {
+					found = this;
+				}
+				if ( ! found) {
+					var parent = $(this).parent();
+					if (parent) {
+						found = parent.closest(selector, context);
+						if (found) {
+							found = found[0];
+						}
+					}
+				}
+				if (found && ! $.inArray(found, foundEles)) {
+					foundEles.push(found);
+				}
+			});
+			return $(foundEles);
+		}
+		return $([]);
 	}
 	Swift.prototype.contents = function () {
-		
+		var contents = [];
+		this.each(function() {
+			contents = contents.concat($.slice(this.childNodes));
+		});
+		return $(contents);
 	}
-	Swift.prototype.end = function () {
-		
+	Swift.prototype.end = Swift.prototype.popStack = function () {
+		var lastRecord = this.stack.pop();
+		if (lastRecord)
+			return lastRecord.swift;
+		return new Swift([]);
 	}
-	Swift.prototype.eq = function () {
-		
+	Swift.prototype.has = function (other) {
+		if (this.length) {
+			return $.inArray($(other)[0], this);
+		}
+		return false;
 	}
-	Swift.prototype.first = function () {
-		
-	}
-	Swift.prototype.has = function () {
-		
-	}
-	Swift.prototype.is = function () {
-		
-	}
-	Swift.prototype.last = function () {
-		
+	Swift.prototype.is = function (other) {
+		var is = true,
+			other = $(other);
+		this.each(function() {
+			if (is)
+				is = other.has(this);
+		});
+		return is;
 	}
 	Swift.prototype.map = function () {
 		
@@ -1101,7 +1135,47 @@
 	Swift.prototype.nextAll = function () {
 		
 	}
+	Swift.prototype.next = function (selector) {
+		if (selector) {
+			var eles = $(selector);
+			var ret = [];
+			this.each(function() {
+				var ele = this;
+				while(ele = ele.nextSibling) {
+					if (ele.nodeType == 1 && $.inArray(ele, eles)) {
+						ret.push(ele);
+						break;
+					}
+				}
+			});
+			return $(ret);
+		} else {
+			var ret = [];
+			this.each(function() {
+				var ele = this;
+				while(ele = ele.nextSibling) {
+					if (ele.nodeType == 1) {
+						ret.push(ele);
+						break;
+					}
+				}
+			});
+			return $(ret);
+		}
+	}
+	Swift.prototype.prev = function () {
+		if (this.length) return $(this[0].previousSibling);
+	}
+	Swift.prototype.nextAll = function () {
+		
+	}
+	Swift.prototype.prevAll = function () {
+		
+	}
 	Swift.prototype.nextUtil = function () {
+		
+	}
+	Swift.prototype.prevUtil = function () {
 		
 	}
 	Swift.prototype.offsetParent = function () {
@@ -1151,7 +1225,7 @@
 				$(this).append(children);
 			}
 		});
-		return swift(newEles);
+		return $(newEles);
 	}
 	Swift.prototype.empty = function() {
 		this.each(function() {
@@ -1173,11 +1247,11 @@
 						$(this).wrap(ele);
 					});
 				} else {
-					wrapper = swift(wrapper).clone();
+					wrapper = $(wrapper).clone();
 					while (true) {
 						if (wrapper.children().length == 0) { // inmost element as real wrapper
 							this.each(function() {
-								var ele = wrapper.clone(true);
+								var ele = wrapper.clone();
 								$(this).after(ele).appendTo(ele);
 							});
 							break;
@@ -1243,7 +1317,7 @@
 						$(this).wrap(ele);
 					});
 				} else {
-					wrapper = swift(wrapper).clone();
+					wrapper = $(wrapper).clone();
 					while (true) {
 						if (wrapper.children().length == 0) { // inmost element as real wrapper
 							var ele = wrapper.clone(true);
@@ -1293,20 +1367,13 @@
 		}
 		return this;
 	}
-	Swift.prototype.next = function () {
-		if (this.length) return swift(this[0].nextSibling);
-		return swift([]);
-	}
-	Swift.prototype.prev = function () {
-		if (this.length) return swift(this[0].previousSibling);
-	}
 	Swift.prototype.parent = function (selector) {
 		if (!selector)
-			return this.length ? swift(this[0].parentElement) : undefined;
+			return this.length ? $(this[0].parentElement) : undefined;
 		// TODO
 		// else {
 		// 	var current = this[0].parentNode;
-		// 	return swift(selector).filter(function() {
+		// 	return $(selector).filter(function() {
 		// 		while(current != document.body) {
 		// 			if (current == this) {
 		// 				return true;
@@ -1325,7 +1392,7 @@
 				children.push(child);
 			});
 		});
-		return swift(children);
+		return $(children);
 	}
 	Swift.prototype.not = function (callback) {
 		var orig = this,
@@ -1335,7 +1402,7 @@
 				targets.push(orig[i]);
 			}
 		});
-		return swift(targets);
+		return $(targets);
 	}
 	Swift.prototype.classes = function () {
 		if (this.length) return this[0].classList;
@@ -1409,18 +1476,30 @@
 		});
 		return this;
 	}
-	Swift.prototype.filter = function (callback) {
-		return swift.filter(this, callback);
+	Swift.prototype.filter = function (selector, context) {
+		if (typeof selector == 'function') {
+			var ret = $($.filter(this, selector));
+		} else {
+			var ret = [];
+			var eles = $(selector, context);
+			this.each(function() {
+				if ($.inArray(this, eles)) {
+					ret.push(this);
+				}
+			});
+			ret = $(ret);
+		}
+		return this.pushStack(ret, 'filter', selector);
 	}
 	Swift.prototype.filternot = function (selector) {
-		var ised = swift(selector, this.context);
+		var ised = $(selector, this.context);
 		var noted = [];
 		this.each(function () {
 			if (!swift.inArray(this, ised)) {
 				noted.push(this);
 			}
 		});
-		return swift(noted);
+		return $(noted);
 	}
 	Swift.prototype.dialog = function (param) {
 		if (!arguments.length) param = {};
@@ -1429,7 +1508,7 @@
 		if (!this.length || !param || !(param instanceof Object)) return;
 		var userDlg = this,
 			oldParent = this.parent();
-		var dlg = userDlg.dialog = swift('<div></div>')
+		var dlg = userDlg.dialog = $('<div></div>')
 			.addClass('swift-dialog')
 			.width(param.width)
 			.height(param.height)
@@ -1438,7 +1517,7 @@
 			.css('background', '#FFF')
 			.css(param.style);
 
-		var bgDiv = param.modal ? swift('<div></div>')
+		var bgDiv = param.modal ? $('<div></div>')
 			.css('z-index', '999')
 			.css('position', 'fixed')
 			.css('left', 0)
@@ -1449,7 +1528,7 @@
 			.appendTo(this.doc().body) : undefined;
 
 		if (param.title || param.titleDivStyle || param.close || param.closeText || param.closeIcon || param.closeDivStyle) 
-			var titleDiv = swift('<div></div>').addClass('swift-dialog-title')
+			var titleDiv = $('<div></div>').addClass('swift-dialog-title')
 			.html('<span">%s</span>'.fs(param.title || ""))
 			.height(25)
 			.width('100%')
@@ -1459,7 +1538,7 @@
 			.appendTo(dlg);
 
 		if (param.close || param.closeText || param.closeIcon || param.closeStyle) 
-			swift('<div></div>').css('float', 'right')
+			$('<div></div>').css('float', 'right')
 			.css('line-height', '25px')
 			.css('font-size', 14)
 			.css(param.closeDivStyle)
@@ -1475,15 +1554,15 @@
 			});
 
 		if (param.buttons) {
-			var bntDiv = swift('<div></div>').addClass('swift-dialog-buttons')
+			var bntDiv = $('<div></div>').addClass('swift-dialog-buttons')
 				.height(25)
 				.css('float', 'right')
 				.width('100%')
 				.css(param.buttonDivStyle)
-				.append(swift('<div></div>').css('float', 'right'));
+				.append($('<div></div>').css('float', 'right'));
 			for (var text in param.buttons) {
 				(function (text) {
-					swift('<button></button>').html(text).click(function () {
+					$('<button></button>').html(text).click(function () {
 						param.buttons[text].apply(userDlg, arguments);
 					}).appendTo(bntDiv.children());
 				})(text);
@@ -1499,7 +1578,7 @@
 		dlg.css('z-index', '10000')
 			.css('position', 'absolute')
 			.appendTo(dlg.doc().body);
-		var contentDiv = swift('<div></div>')
+		var contentDiv = $('<div></div>')
 			.addClass('swift-dialog-content')
 			.width('100%')
 			.css(param.contentDivStyle);
@@ -1597,19 +1676,21 @@
 		}
 	}
 	Swift.prototype.first = function () {
-		return swift(this.slice(0, 1));
+		return this.eq(0);
 	}
 	Swift.prototype.last = function () {
-		return swift(this.slice(-1));
+		return this.eq(-1);
 	}
 	Swift.prototype.firstChild = function () {
-		return swift(this.children().slice(0, 1));
+		return $(this.children().slice(0, 1));
 	}
 	Swift.prototype.lastChild = function () {
-		return swift(this.children().slice(-1))
+		return $(this.children().slice(-1))
 	}
 	Swift.prototype.eq = function (i) {
-		return swift(this.slice(i, i + 1));
+		index = (i+this.length) % this.length;
+		var ret = $(this.slice(index, index + 1));
+		return this.pushStack(ret, 'eq', i);
 	}
 	Swift.prototype.get = function (i) {
 		if (arguments.length) {
@@ -1641,7 +1722,7 @@
 	// ### Swift ends
 	
 	// selector for ie
-	if (!document.querySelectorAll) document.querySelectorAll = function(selector) {
+	if (!document.querySelectorAll) var querySelectorAll = function(selector) {
 		var head = document.documentElement.firstChild;
 		var styleTag = document.createElement("STYLE");
 		head.appendChild(styleTag);
@@ -1666,12 +1747,12 @@
 			else {
 				matched = /^(?:[^#<]*(<[\w\W]+>)[^>]*$|#([\w\-]*)$)/.exec(selector);
 				if (matched && matched[1]) {
-					var tmpDiv = swift('<div></div>'),
+					var tmpDiv = $('<div></div>'),
 						tags = tmpDiv.html(matched[1])[0].childNodes;
 				}
-				else var tags = document.querySelectorAll.call(ctx, selector);
+				else var tags = ctx.querySelectorAll ? ctx.querySelectorAll(selector) : querySelectorAll.call(ctx, selector);
 			}
-		} else if (selector instanceof HTMLElement || selector instanceof HTMLDocument || selector === window) var tags = [selector];
+		} else if (selector instanceof HTMLElement || selector instanceof HTMLDocument || selector instanceof Text || selector === window) var tags = [selector];
 		else if (type == 'Array' || type == 'NodeList') var tags = selector;
 		else if (type == 'Swift') return selector;
 		else if (type == 'Function') {
@@ -1755,11 +1836,11 @@
 		*/
 		if (typeof callback != "function") throw new TypeError();
 		var res = [];
-		Array.prototype.forEach.call(items, function(ele, i, eles) {
-			var callback_return = callback.call(eles, ele, i, eles);
+		Array.prototype.forEach.call(items, function(item, i, items) {
+			var callback_return = callback.call(item, item, i, items);
 			if (reverse && !callback_return ||
 				!reverse && callback_return)
-				res.push(ele);
+				res.push(item);
 			});
 		return res;
 	}
@@ -1889,7 +1970,7 @@
 		var camelCase = name.replace(/^-o-/, 'o-').replace(/^-ms-/, 'ms-').replace(/^-webkit-/, 'webkit-').replace(/^-moz-/, 'moz-').replace(/-([a-z]|[0-9])/ig, function (all, letter) {
 			return (letter + '').toUpperCase();
 		});
-		if (camelCase == 'float') return !!swift('<div></div>').html('<a style="float:left"></a>').find('a')[0].style.cssFloat ? 'cssFloat' : 'styleFloat';
+		if (camelCase == 'float') return !!$('<div></div>').html('<a style="float:left"></a>').find('a')[0].style.cssFloat ? 'cssFloat' : 'styleFloat';
 		var div = document.createElement('div');
 		if (camelCase in div.style) {
 			return camelCase;
@@ -1984,7 +2065,6 @@
 	swift.inArray = function (value, arr, startIdx) {
 		for (var i = startIdx || 0; i < arr.length; i++) {
 			if (value === arr[i]) return true;
-			else continue;
 		}
 		return false;
 	}
