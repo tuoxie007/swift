@@ -52,32 +52,41 @@
 		this.context = context;
 		this.selector = selector;
 		this.swift = "2.0";
+		
+		this.stack = [];
 	}
 	// extend Swift prototype
 	Swift.prototype = Array.prototype;
 	Swift.prototype.constructor = Swift;
-	Swift.prototype.find = function (arg1) {
+	Swift.prototype.find = function (arg1) { // TEST
+		var found = undefined;
 		if (!this.length)
-			return swift([]);
+			found = swift([]);
 		else if (typeof arg1 === 'string') { // .find(selector)
-			var found = swift([]);
+			found = swift([]);
 			this.each(function() {
 				found.add(swift(arg1, this));
 			});
-			return found;
 		} else if (arg1.swift) { // .find(swift object)
-			return swift(swift.filter(this, function(item) {
-				return item in arg1;
+			found = swift(swift.filter(this, function(item) {
+				return $.inArray(item, arg1);
 			}));
 		} else if (arg1.length > 0) { // .find(elements)
-			return swift(swift.filter(this, function(item) {
-				return item in arg1;
+			found = swift(swift.filter(this, function(item) {
+				return $.inArray(item, arg1);
 			}));
 		} else { // .find(element)
-			return swift(swift.filter(this, function(item) {
+			foudn swift(swift.filter(this, function(item) {
 				return item == arg1;
 			}));
 		}
+		return this.pushStack(found, 'find', arg1);
+	}
+	Swift.prototype.pushStack = function(elements, method, args) {
+		var newSwift = $(elements);
+		newSwift.stack = this.stack.slice(0);
+		newSwift.stack.push({'elemetns': this.get(), 'method': method, 'arguments': args});
+		return newSwift;
 	}
 	Swift.prototype.each = function (callback) {
 		Array.prototype.forEach.call(this, function(item, index, items) {
@@ -753,7 +762,11 @@
 	Swift.prototype.clearQueue = function() {
 		// TODO
 	}
-	Swift.prototype.add = function (other) {
+	Swift.prototype.add = function (other, context) { // TEST
+		if (context)
+			other = $(other, context);
+		else
+			other = $(other);
 		if (other.length != undefined) {
 			for (var i = 0; i < other.length; i++) {
 				this.push(other[i]);
@@ -762,6 +775,9 @@
 			this.push(other);
 		}
 		return this;
+	}
+	Swift.prototype.andSelf = function() {
+		
 	}
 	Swift.prototype.pushStack = function() {
 		// TODO
