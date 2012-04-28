@@ -58,6 +58,10 @@
 	// extend Swift prototype
 	Swift.prototype = Array.prototype;
 	Swift.prototype.constructor = Swift;
+	Swift.prototype.sslice = function(start, end) {
+		var ret = this.slice(start, end);
+		return this.pushStack($(ret), 'sslice', start, end);
+	}
 	Swift.prototype.find = function (arg1) { // TEST
 		var found = undefined;
 		if (!this.length)
@@ -459,16 +463,14 @@
 			else if (document.defaultView.getComputedStyle)
 				return document.defaultView.getComputedStyle(this[0], null).getPropertyValue(name);
 		} else if (swift.checkTypes(arguments, ['string', 'string'], true)) {
-			if (this.length) {
-				var elem = this[0],
-					name = arguments[0],
-					value = arguments[1];
-				if (elem && elem.nodeType !== 3 && elem.nodeType !== 8 && elem.style)
-					return this.each(function () {
-						name = swift.styleName(name);
-						this.style[name] = value;
-					});
-			}
+			var elem = this[0],
+				name = arguments[0],
+				value = arguments[1];
+			if (elem && elem.nodeType !== 3 && elem.nodeType !== 8 && elem.style)
+				this.each(function () {
+					name = swift.styleName(name);
+					this.style[name] = value;
+				});
 		} else if (swift.checkTypes(arguments, ['object'], true)) {
 			var styles = arguments[0];
 			for (var name in styles) {
@@ -1121,83 +1123,102 @@
 		return false;
 	}
 	Swift.prototype.is = function (other) {
-		var is = true,
+		var is = true;
+		if (typeof other == 'function') {
+			this.each(function(index) {
+				if (is)
+					is = !!other.call(this, index);
+			});
+		} else {
 			other = $(other);
-		this.each(function() {
-			if (is)
-				is = other.has(this);
-		});
+			this.each(function() {
+				if (is)
+					is = other.has(this);
+			});
+		}
 		return is;
 	}
 	Swift.prototype.map = function () {
 		
 	}
-	Swift.prototype.nextAll = function () {
-		
-	}
-	var obj = ['next', 'prev'];
+	var obj = ['next', 'prev', 'nextAll', 'prevAll'];
 	obj.forEach(function(name) {
-		(function(name) {
-			Swift.prototype[name] = function (selector) {
-				if (selector) {
-					var eles = $(selector);
-					var ret = [];
-					this.each(function() {
-						var ele = this;
-						while(ele = ele[name+'Sibling']) {
-							if (ele.nodeType == 1 && $.inArray(ele, eles)) {
-								ret.push(ele);
-								break;
-							}
-						}
-					});
-					return $(ret);
-				} else {
-					var ret = [];
-					this.each(function() {
-						var ele = this;
-						while(ele = ele[name+'Sibling']) {
-							if (ele.nodeType == 1) {
-								ret.push(ele);
-								break;
-							}
-						}
-					});
-					return $(ret);
-				}
+		var targetEleName = name.startswith('next') ? 'nextSibling' : 'previousSibling';
+		Swift.prototype[name] = function (selector) {
+			if (selector) {
+				var eles = $(selector);
+			} else {
+				var eles = undefined;
 			}
-		})(name);
+			var ret = [];
+			this.each(function() {
+				var ele = this;
+				while(ele = ele[targetEleName]) {
+					if (ele.nodeType == 1 && 
+						(eles === undefined || $.inArray(ele, eles)) && 
+						!$.inArray(ele, ret)) {
+						ret.push(ele);
+						if (!name.endswith('All')) break;
+					}
+				}
+			});
+			return this.pushStack($(ret), name, selector);
+		}
 	});
 	obj = null;
-	Swift.prototype.nextAll = function () {
-		
-	}
-	Swift.prototype.prevAll = function () {
-		
-	}
-	Swift.prototype.nextUtil = function () {
-		
-	}
-	Swift.prototype.prevUtil = function () {
-		
-	}
+	var obj = ['next', 'prev', 'parents'];
+	obj.forEach(function(name) {
+		var targetEleName = {'next': 'nextSibling', 
+							 'prev': 'previousSibling', 
+							 'parents': 'parentElement'
+							}[name];
+		Swift.prototype[name+'Until'] = function (until, filter) {
+			if (until) {
+				until = $(until);
+			} else {
+				until = undefined;
+			}
+			if (filter) {
+				filter = $(filter);
+			} else {
+				filter = undefined;
+			}
+			var ret = [];
+			this.each(function() {
+				var ele = this;
+				while(ele = ele[targetEleName]) {
+					if (until && $.inArray(ele, until)) break;
+					if (ele.nodeType == 1 && 
+						(filter === undefined || $.inArray(ele, filter)) && 
+						!$.inArray(ele, ret)) {
+						ret.push(ele);
+					}
+				}
+			});
+			return this.pushStack($(ret), name+'Until', until, filter);
+		}
+	});
+	obj = null;
 	Swift.prototype.offsetParent = function () {
-		
+		var ret = [];
+		this.each(function() {
+			ret.push(this.offsetParent ? this.offsetParent : document.body);
+		});
+		return this.pushStack($(ret), 'offsetParent');
 	}
-	Swift.prototype.parents = function () {
-		
-	}
-	Swift.prototype.parentUtil = function () {
-		
-	}
-	Swift.prototype.prevAll = function () {
-		
-	}
-	Swift.prototype.prevUtil = function () {
-		
-	}
-	Swift.prototype.siblings = function () {
-		
+	Swift.prototype.siblings = function (selector) {
+		var ret = [];
+		this.each(function() {
+			var parent = $(this).parent();
+			if (parent.length) {
+				parent.children().filternot(this).slice().forEach(function(ele) {
+					if (!$.inArray(ele, ret)) {
+						ret.push(ele);
+					}
+				});
+			}
+		});
+		return this.pushStack($(ret), 'siblings', selector);
 	}
 	
 	Swift.prototype.clone = function (withDataAndEvents, deepWithDataAndEvents) {
@@ -1371,20 +1392,36 @@
 		return this;
 	}
 	Swift.prototype.parent = function (selector) {
-		if (!selector)
-			return this.length ? $(this[0].parentElement) : undefined;
-		// TODO
-		// else {
-		// 	var current = this[0].parentNode;
-		// 	return $(selector).filter(function() {
-		// 		while(current != document.body) {
-		// 			if (current == this) {
-		// 				return true;
-		// 			}
-		// 			current = current.parentNode;
-		// 		}
-		// 	});
-		// }
+		if (selector) {
+			var eles = $(selector);
+		} else {
+			var eles = undefined;
+		}
+		var ret = [];
+		this.each(function() {
+			var ele = this.parentElement;
+			if(ele && (eles === undefined || $.inArray(ele, eles)) && !$.inArray(ele, ret)) {
+				ret.push(ele);
+			}
+		});
+		return this.pushStack($(ret), name, selector);
+	}
+	Swift.prototype.parents = function (selector) {
+		if (selector) {
+			var eles = $(selector);
+		} else {
+			var eles = undefined;
+		}
+		var ret = [];
+		this.each(function() {
+			var ele = this;
+			while(ele = ele.parentElement) {
+				if((eles === undefined || $.inArray(ele, eles)) && !$.inArray(ele, ret)) {
+					ret.push(ele);
+				}
+			}
+		});
+		return this.pushStack($(ret), name, selector);
 	}
 	Swift.prototype.children = function () {
 		var children = [];
@@ -1397,15 +1434,17 @@
 		});
 		return $(children);
 	}
-	Swift.prototype.not = function (callback) {
-		var orig = this,
-			targets = [];
-		this.each(function (i) {
-			if (!callback.call(this, i)) {
-				targets.push(orig[i]);
-			}
-		});
-		return $(targets);
+	Swift.prototype.not = function () {
+		if (typeof arguments[0] == 'function') {
+			this.each(function(index) {
+				
+			});
+		} else {
+			var eles = $(arguments[0]);
+		}
+	}
+	Swift.prototype.not = function (other) {
+		return ! this.is(other);
 	}
 	Swift.prototype.classes = function () {
 		if (this.length) return this[0].classList;
@@ -1481,7 +1520,13 @@
 	}
 	Swift.prototype.filter = function (selector, context) {
 		if (typeof selector == 'function') {
-			var ret = $($.filter(this, selector));
+			var ret = [];
+			this.each(function(index) {
+				if (selector.call(this, index)) {
+					ret.push(this);
+				}
+			});
+			ret = $(ret);
 		} else {
 			var ret = [];
 			var eles = $(selector, context);
@@ -1494,15 +1539,26 @@
 		}
 		return this.pushStack(ret, 'filter', selector);
 	}
-	Swift.prototype.filternot = function (selector) {
-		var ised = $(selector, this.context);
-		var noted = [];
-		this.each(function () {
-			if (!swift.inArray(this, ised)) {
-				noted.push(this);
-			}
-		});
-		return $(noted);
+	Swift.prototype.filternot = function (selector, context) {
+		if (typeof selector == 'function') {
+			var ret = [];
+			this.each(function(index) {
+				if (!selector.call(this, index)) {
+					ret.push(this);
+				}
+			});
+			ret = $(ret);
+		} else {
+			var ret = [];
+			var eles = $(selector, context);
+			this.each(function() {
+				if (!$.inArray(this, eles)) {
+					ret.push(this);
+				}
+			});
+			ret = $(ret);
+		}
+		return this.pushStack(ret, 'filter', selector);
 	}
 	Swift.prototype.dialog = function (param) {
 		if (!arguments.length) param = {};
@@ -1685,10 +1741,12 @@
 		return this.eq(-1);
 	}
 	Swift.prototype.firstChild = function () {
-		return $(this.children().slice(0, 1));
+		var ret = $(this.children().slice(0, 1));
+		return this.pushStack(ret, 'eq', i);
 	}
 	Swift.prototype.lastChild = function () {
-		return $(this.children().slice(-1))
+		var ret = $(this.children().slice(-1));
+		return this.pushStack(ret, 'eq', i);
 	}
 	Swift.prototype.eq = function (i) {
 		index = (i+this.length) % this.length;
@@ -1700,7 +1758,8 @@
 			if (this.length > i)
 				return this[i];
 		}
-		return this.slice(0);
+		var ret = this.slice();
+		return this.push($(ret), 'get', i);
 	}
 	Swift.prototype.layout = function () {
 		if (!this.length) return null;
