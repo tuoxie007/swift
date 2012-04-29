@@ -43,6 +43,25 @@
 	
 	// global
 	var global = {events: [], data: {}};
+	global.ajaxSettings = {
+		type: 'GET',
+		cache: true,
+		async: true,
+		headers: {
+			'X-Requested-With': 'XMLHttpRequest'
+		},
+		accepts: {
+			script: 'text/javascript, application/javascript, application/ecmascript, application/x-ecmascript',
+			xml: 'application/xml, text/xml',
+			html: 'text/html',
+			text: 'text/plain',
+			json: 'application/json, text/javascript'
+		},
+		dataType: '*',
+		ifModified: false,
+		processData: true,
+		traditional: false
+	};
 
 	function Swift(tags, selector, context) {
 		for (var i = 0; i < tags.length; i++) {
@@ -51,7 +70,7 @@
 		this.length = tags.length;
 		this.context = context;
 		this.selector = selector;
-		this.swift = "2.0";
+		this.swift = '2.0';
 		
 		this.stack = context ? [{'swift': new Swift([context])}] : []
 	}
@@ -261,7 +280,7 @@
 	Swift.prototype.toggle = function () {
 		/*
 			Bind two or more handlers to the matched elements, to be executed on alternate clicks.
-			.toggle( handler(eventObject), handler(eventObject) [, handler(eventObject)] )
+			.toggle(handler(eventObject), handler(eventObject) [, handler(eventObject)])
 		*/
 		return (function(cb1, cb2, cb3) {
 			return this.on('click', function () {
@@ -418,10 +437,10 @@
 	Swift.prototype.toggleClass = function() {
 		/*
 			Add or remove one or more classes from each element in the set of matched elements, depending on either the class's presence or the value of the switch argument.
-			.toggleClass( className )
-			.toggleClass( className, switch )
-			.toggleClass( [switch] )
-			.toggleClass( function(index, class, switch) [, switch] )
+			.toggleClass(className)
+			.toggleClass(className, switch)
+			.toggleClass([switch])
+			.toggleClass(function(index, class, switch) [, switch])
 		*/
 		if (swift.checkTypes(arguments, ['string'])) {
 			if (arguments[1] === false) return;
@@ -754,7 +773,6 @@
 				});
 			}
 		}
-		if (swift.data[this.guid]) delete swift.data[this.guid];
 	}
 	Swift.prototype.quque = function() {
 		// TODO
@@ -773,11 +791,11 @@
 		var newObj = $(this.get());
 		if (other.length != undefined) {
 			for (var i = 0; i < other.length; i++) {
-				if ( ! newObj.has(other[i]))
+				if (! newObj.has(other[i]))
 					newObj.push(other[i]);
 			}
 		} else {
-			if ( ! newObj.has(other))
+			if (! newObj.has(other))
 				newObj.push(other);
 		}
 		return this.pushStack(newObj, 'add', arguments);
@@ -787,7 +805,7 @@
 		if (lastSwift) {
 			lastSwift = lastSwift.swift;
 			for (var i = 0; i < lastSwift.length; i++) {
-				if ( ! this.has(lastSwift[i]))
+				if (! this.has(lastSwift[i]))
 					this.push(lastSwift[i]);
 			}
 		}
@@ -884,6 +902,27 @@
 			}
 		}
 		return this;
+	}
+	Swift.prototype.ajaxStart = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxComplete = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxError = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxSend = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxSetup = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxStop = function(handler) {
+		// TODO
+	}
+	Swift.prototype.ajaxSuccess = function(handler) {
+		// TODO
 	}
 	var obj = {
 		insertBefore: 'before',
@@ -1086,7 +1125,7 @@
 				if ($.inArray(this, eles)) {
 					found = this;
 				}
-				if ( ! found) {
+				if (! found) {
 					var parent = $(this).parent();
 					if (parent) {
 						found = parent.closest(selector, context);
@@ -1696,7 +1735,7 @@
 				tsv = swift.asInt(tsv);
 				if (isNaN(tsv)) continue;
 				var unit = /\D*$/.exec(tsv);
-				if ( !! unit) unit = 'px';
+				if (!! unit) unit = 'px';
 				var csv /*current style value*/
 				= this.css(name);
 				if (!csv) csv = this.style(name);
@@ -1847,9 +1886,6 @@
 	swift.cloneObject = function(obj) {
 		return JSON.parse(JSON.stringify(obj));
 	}
-	swift.param = function(obj) {
-		// TODO
-	}
 	swift.emptyObject = function(obj) {
 		var empty = true;
 		for (var i in empty)
@@ -1919,7 +1955,7 @@
 	}
 	swift.each = function(items, callback) {
 		/*
-			$.each( items, callback(index, item) )
+			$.each(items, callback(index, item))
 		*/
 		for (var key in items) {
 			var item = items[key];
@@ -1929,100 +1965,274 @@
 	swift.htmlEncode = function (source) {
 		return source.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/ /g, '&nbsp;');
 	}
+	swift.mergeObject = function(first, second) {
+		var ret = {};
+		if (first) {
+			for (var key in first) {
+				ret[key] = first[key];
+			}
+		}
+		if (second) {
+			for (var key in second) {
+				ret[key] = second[key];
+			}
+		}
+		return ret;
+	}
+	swift.ajaxSetup = function(param) {
+		global.ajaxSettings = $.mergeObject(global.ajaxSettings, param);
+	}
 	swift.ajax = function (param) {
-		if (param == undefined) return;
-		var xmlhttp = null;
-		if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
-			xmlhttp = new XMLHttpRequest();
-		} else { // code for IE6, IE5
-			xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+		if (arguments.length == 2) {
+			param = arguments[1];
+			param.url = arguments[0];
 		}
-		if (param.method.toUpperCase() == 'GET') {
-			if (param.data) {
-				if (swift.type(param.data) == "String") {
-					param.url += "?" + param.data;
-				} else if (swift.type(param.data) == "Object") {
-					var data = [];
-					for (var i in param.data) {
-						data.push("%s=%s".fs(encodeURIComponent(i), encodeURIComponent(param.data[i])));
-					}
-					param.url += "?" + data.join("&");
-				}
+		
+		var deferred = {};
+		var callbacks = {};
+		if (param.context) callbacks.context = param.context;
+		if (param.success) callbacks.success = param.success;
+		if (param.error) callbacks.error = param.error;
+		if (param.notmodified) callbacks.notmodified = param.notmodified;
+		if (param.parsererror) callbacks.parsererror = param.parsererror;
+		if (param.abort) callbacks.abort = param.abort;
+		if (param.complete) callbacks.complete = param.complete;
+		if (param.xhr) callbacks.xhr = param.xhr;
+		
+		var swxhr = {
+			setRequestHeader: function(name, value) {
+				this.xhr.setRequestHeader(name, value);
+			},
+			getAllResponseHeaders: function() {
+				return this.xhr.getAllResponseHeaders();
+			},
+			getResponseHeader: function(name) {
+				return this.xhr.getResponseHeader(name);
+			},
+			abort: function() {
+				return this.xhr.abort();
 			}
-		}
-		xmlhttp.open(param.method.toUpperCase(), param.url, true);
-		for (var key in param.headers) {
-			xmlhttp.setRequestHeader(key, param.headers[key]);
-		}
-		xmlhttp.setRequestHeader('Accept', '*/*')
-		xmlhttp.setRequestHeader('Content-Type', 'application/octet-stream')
-		xmlhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
-		xmlhttp.onreadystatechange = function () {
-			if (xmlhttp.readyState == 4) {
-				if (param[xmlhttp.status]) {
-					var ret = {
-						'error': 'HTTP_ERROR',
-						'status': xmlhttp.status,
-						'headers': xmlhttp.getAllResponseHeaders(),
-						'body': xmlhttp.responseText
-					};
-					param[xmlhttp.status].call(param, ret);
-				} else if (xmlhttp.status == 200) {
-					if (param.success) {
-						var type = param.type,
-							ret;
-						if (type == undefined || type.toLowerCase() in ['html', 'text']) {
-							ret = xmlhttp.responseText;
-						} else if (type.toLowerCase() == 'json') {
-							ret = swift.parseJSON(xmlhttp.responseText);
-						} else if (type.toLowerCase() == 'xml') {
-							ret = xmlhttp.responseXML;
+		};
+		
+		// define processor
+		function responseProcessor(swxhr, param) {
+			swxhr.status = swxhr.status;
+			swxhr.statusText = swxhr.statusText;
+			if (param.statusCode) {
+				var ret = {
+					'status': swxhr.xhr.status,
+					'headers': swxhr.xhr.getAllResponseHeaders(),
+					'body': swxhr.xhr.responseText
+				};
+				param.statusCode[swxhr.xhr.status].call(param, ret);
+			} else if (swxhr.xhr.status == 200) {
+				if (swxhr.xhr.getResponseHeader('Last-Modified') && param.ifModified) {
+					return deferred;
+				}
+				if (callbacks.success) {
+					var dataType = param.dataType,
+						ret;
+					if (param.dataFilter) {
+						var responseText = swxhr.responseText = callbacks.dataFilter.call(param, swxhr.xhr.responseText, param.dataType);
+					} else {
+						var responseText = swxhr.responseText = swxhr.xhr.responseText;
+					}
+					if (dataType == undefined || dataType.toLowerCase() in ['html', 'text']) {
+						if (param.converters['* text']) {
+							ret = param.converters['* text'](responseText);
+						} else {
+							ret = responseText;
 						}
-						param.success.call(param, ret);
+					} else if (dataType.toLowerCase() == 'json') {
+						try {
+							if (param.converters['text html']) {
+								ret = param.converters['text html'](responseText);
+							} else {
+								ret = $.parseJSON(responseText);
+							}
+						} catch (e) {
+							callbacks.parsererror.call(param, responseText);
+						}
+					} else if (dataType.toLowerCase() == 'xml') {
+						swxhr.responseXML = swxhr.xhr.responseXML;
+						try {
+							if (param.converters['text xml']) {
+								ret = param.converters['text xml'](responseText);
+							} else {
+								ret = $.parseXML(responseText);
+							}
+						} catch (e) {
+							callbacks.parsererror.call(param, responseText);
+						}
 					}
-				} else if (param.error) {
-					var ret = {
-						'error': 'HTTP_ERROR',
-						'status': xmlhttp.status,
-						'headers': xmlhttp.getAllResponseHeaders(),
-						'body': xmlhttp.responseText
-					};
-					param.error.call(param, ret);
+					callbacks.success.call(param, ret, statusText, swxhr);
+				}
+			} else if (swxhr.xhr.status == 304) {
+				if (param.ifModified) {
+					return deferred;
+				}
+				ret = 'notmodified';
+				if (callbacks.notmodified) {
+					callbacks.notmodified.call(param, ret);
+				}
+			} else if (callbacks.error) {
+				var ret = {
+					'error': 'HTTP_Error',
+					'status': swxhr.xhr.status,
+					'headers': swxhr.xhr.getAllResponseHeaders(),
+					'body': swxhr.xhr.responseText
+				};
+				callbacks.error.call(param, swxhr, swxhr.xhr.status);
+			}
+			if (callbacks.complete) {
+				callbacks.complete.call(param, ret);
+			}
+		}
+		
+		// create Request
+		if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
+			var xmlhttp = new XMLHttpRequest();
+		} else { // code for IE6, IE5
+			var xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+			// var xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+			// var xmlhttp = new XDomainRequest();
+		}
+		swxhr.xhr = xmlhttp;
+		
+		// call beforeSend function
+		if (callbacks.beforeSend) {
+			if (! callbacks.beforeSend(swxhr, param)) {
+				return;
+			}
+		}
+		
+		// get param
+		if (param) {
+			param = $.mergeObject(global.ajaxSettings, param);
+		}
+		
+		// set url
+		if (param.type.toUpperCase() == 'GET') {
+			if (param.data) {
+				if (typeof param.data == 'string') {
+					param.url += '?' + param.data;
+				} else if (typeof param.data == 'object') {
+					param.url += '?' + $.param(param.data);
+				}
+				// set no cache
+				if (! param.cache) {
+					param.url += '&_='+new Date().getTime();
+				}
+			} else {
+				// set no cache
+				if (! param.cache) {
+					param.url += '?_='+new Date().getTime();
 				}
 			}
 		}
+		
+		// set headers
+		// xmlhttp.setRequestHeader('Accept', '*/*');
+		if (param.mimeType && xmlhttp.overrideMimeType) {
+			xmlhttp.overrideMimeType(param.mimeType);
+		}
+		var headers = global.ajaxSettings.headers || {},
+			headers = $.mergeObject(global.ajaxSettings.headers, param.headers || {});
+		if (true && !headers['X-Requested-With']) {
+			headers['X-Requested-With'] = 'XMLHttpRequest';
+		}
+		if (param.dataType && param.dataType !== '*' && param.accepts[param.dataType]) {
+			headers['Accept'] = param.accepts[param.dataType] + ', */*; q=0.01';
+		}
+		try {
+			for (var key in headers) {
+				xmlhttp.setRequestHeader(key, headers[key]);
+			}
+		} catch(_) {}
+		
+		// set timeout
 		if (param.timeout) {
 			setTimeout(function () {
 				xmlhttp.abort();
-				var ret = {
-					'error': 'TIMEOUT'
+				if (callbacks.abort) {
+					callbacks.abort.call(param);
 				}
-				param.error.call(param, ret);
 			}, param.timeout);
 		}
-		if (param.method.toUpperCase() == 'POST') {
+		
+		// connect to server
+		if (param.username) {
+			xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+		} else {
+			xmlhttp.open(param.type, param.url, param.async);
+		}
+		
+		// send data
+		if (param.type.toUpperCase() == 'POST') {
 			if (!param.data) {
-				xmlhttp.send('');
+				var data = '';
+			} else if (typeof param.data == 'string' || ! param.processData) {
+				var data = param.data;
 			} else {
-				xmlhttp.send(swift.toJSON(param.data));
+				if (! param.contentType)
+					xmlhttp.setRequestHeader('Content-Type', 
+					                         'application/x-www-form-urlencoded; charset=UTF-8');
+				var data = $.param(param.data);
 			}
+			if (param.contentType) {
+				xmlhttp.setRequestHeader('Content-Type', param.contentType);
+			}
+			xmlhttp.send(data);
 		}
 		try {
 			xmlhttp.send();
 		} catch(e) {
-			return;
+			if (param.error) {
+				var ret = {
+					'error': 'Swift_Error',
+					'status': xmlhttp.status,
+					'headers': xmlhttp.getAllResponseHeaders(),
+					'body': xmlhttp.responseText
+				};
+				param.error.call(param, ret);
+			}
 		}
+		
+		// set processor
+		if (param.async) {
+			xmlhttp.onreadystatechange = function() {
+				swxhr.readyState = xmlhttp.readyState;
+				if (xmlhttp.readyState == 4) {
+					responseProcessor(swxhr, param);
+				}
+			}
+		} else {
+			responseProcessor(swxhr, param);
+		}
+		
+		return deferred;
 	}
 	swift.get = function (param) {
+		// TODO
 		param.method = 'GET';
 		return swift.ajax(param);
 	}
 	swift.post = function (param) {
+		// TODO
 		param.method = 'POST';
 		return swift.ajax(param);
 	}
-	swift.generateGUID = function () {
-		return swift.guid = (swift.guid + 1) || 1;
+	swift.getJSON = function (param) {
+		// TODO
+	}
+	swift.getScript = function (param) {
+		// TODO
+	}
+	swift.load = function (param) {
+		// TODO
+	}
+	swift.ajaxPrefilter = function (param) {
+		// TODO
 	}
 	swift.isInt = function (n) {
 		// Attension: 1E209 is no a int here
@@ -2046,7 +2256,7 @@
 		}
 		return camelCase;
 	}
-	swift.alert = function (msg /*required*/ , handler /*optional*/ , userStyle /*optional*/ ) {
+	swift.alert = function (msg /*required*/ , handler /*optional*/ , userStyle /*optional*/) {
 		if (!(arguments[1] instanceof Function)) var style = arguments[1];
 		else if (!(arguments[2] instanceof Function)) var callback = arguments[1],
 			style = arguments[2];
@@ -2093,12 +2303,53 @@
 	swift.asInt = function (numberWithUnit) {
 		return parseInt(/\d*/.exec(numberWithUnit)[0]);
 	}
-	swift.data = {};
-	swift.param = function (data) {
-		var mappings = [];
-		for (var k in data)
-		mappings.push('%s=%s'.fs(k, encodeURIComponent(data[k])));
-		return mappings.join('&');
+	function buildParams(prefix, obj, traditional, add) {
+		if (Array.isArray(obj)) {
+			// Serialize array item.
+			obj.forEach(function(v, i) {
+				if (traditional || /\[\]$/.test(prefix)) {
+					// Treat each array item as a scalar.
+					add(prefix, v);
+				} else {
+					buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add);
+				}
+			});
+		} else if (!traditional && typeof obj === 'object') {
+			// Serialize object item.
+			for (var name in obj) {
+				buildParams(prefix + '[' + name + ']', obj[ name ], traditional, add);
+			}
+		} else {
+			// Serialize scalar item.
+			add(prefix, obj);
+		}
+	}
+	swift.param = function (a, traditional) {
+		var s = [],
+			add = function(key, value) {
+				// If value is a function, invoke it and return its value
+				value = typeof value == 'function' ? value() : value;
+				s[ s.length ] = encodeURIComponent(key) + '=' + encodeURIComponent(value);
+			};
+
+		if (traditional === undefined) {
+			traditional = global.ajaxSettings.traditional;
+		}
+
+		// If an array was passed in, assume that it is an array of form elements.
+		if (a.length) {
+			// Serialize the form elements
+			$.each(a, function() {
+				add(this.name, this.value);
+			});
+		} else {
+			for (var prefix in a) {
+				buildParams(prefix, a[ prefix ], traditional, add);
+			}
+		}
+
+		// Return the resulting serialization
+		return s.join('&').replace(/%20/g, '+');
 	}
 	swift.merge = function () {
 		return [].concat(swift.slice(arguments));
@@ -2109,16 +2360,17 @@
 	swift.parseXML = function (data) {
 		var xml;
 		try {
-			if (window.DOMParser) xml = new DOMParser().parseFromString(data, "text/xml");
+			if (window.DOMParser) xml = new DOMParser().parseFromString(data, 'text/xml');
 			else {
-				xml = new ActiveXObject("Microsoft.XMLDOM");
-				xml.async = "false";
+				xml = new ActiveXObject('Microsoft.XMLDOM');
+				xml.async = 'false';
 				xml.loadXML(data);
 			}
 		} catch (e) {
 			xml = undefined;
 		}
-		if (!xml || !xml.documentElement || xml.getElementsByTagName("parsererror").length) swift.error("Invalid XML: " + data);
+		if (!xml || !xml.documentElement || xml.getElementsByTagName('parsererror').length)
+		 	throw new Error('Invalid XML');
 		return xml;
 	}
 	swift.now = function () {
@@ -2196,7 +2448,7 @@
 	swift.parseJSON = swift.evalJSON = typeof window.JSON === 'object' && window.JSON.parse ? window.JSON.parse : function (src) {
 		var filtered = src.replace(/\\["\\\/bfnrtu]/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, '');
 		if (/^[\],:{}\s]*$/.test(filtered)) return eval('(' + src + ')');
-		else swift.error("Invalid JSON: " + o);
+		else throw new Error('Invalid JSON');
 	}
 	swift.quoteString = function (string) {
 		var escapeable = /["\\\x00-\x1f\x7f-\x9f]/g,
