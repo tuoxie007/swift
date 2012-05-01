@@ -61,7 +61,9 @@
 		ifModified: false,
 		processData: true,
 		traditional: false,
-		global: true
+		global: true,
+		isLocal: false,
+		crossDomain: false
 	};
 	
 	function Swift(tags, selector, context) {
@@ -320,7 +322,7 @@
 		return this;
 	}
 	
-	var actions = 'change click dbclick focus focusin focusout hover keydown keypress keyup load mousedown mouseenter mouseleave mousemove mouseout mouseup resize scroll select submit unload error error'.split(' ');
+	var actions = 'change click dbclick focus focusin focusout hover keydown keypress keyup load mousedown mouseenter mouseleave mousemove mouseout mouseup resize scroll select submit unload error'.split(' ');
 	for (var i = 0; i < actions.length; i++) {
 		var action = actions[i];
 		(function (action) {
@@ -2187,6 +2189,68 @@
 	swift.promise = function() {
 		return $.Deferred.apply(this, arguments).promise();
 	}
+	function sendJSONP(param, deferred, promise) {
+		param.global = false;
+		
+		var swxhr = promise;
+		
+		swxhr.status = 200;
+		swxhr.statusText = 'OK';
+		swxhr.statusCode = function() {
+			return '';
+		}
+		swxhr.overrideMimeType = function(value) {
+		}
+		swxhr.setRequestHeader = function(name, value) {
+		}
+		swxhr.getAllResponseHeaders = function() {
+			return '';
+		}
+		swxhr.getResponseHeader = function(name) {
+			return '';
+		}
+		swxhr.abort = function() {
+		}
+		// get param
+		if (param) {
+			param = $.mergeObject(global.ajaxSettings, param);
+		}
+		if (param.data) {
+			param.url += (/\?.+=.+/.test(param.url) ? '&' : '?') + 
+			             (typeof param.data == 'string' ? param.data : $.param(param.data));
+		}
+		// set no cache
+		if (! param.cache) {
+			param.url += '&_='+new Date().getTime();
+		}
+		// set timeout
+		if (param.timeout) {
+			setTimeout(function () {
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'timeout');
+				} else {
+					deferred.reject(swxhr, 'timeout');
+				}
+			}, param.timeout);
+		}
+		// call beforeSend function
+		if (param.context) {
+			deferred.notifyWith(param.context, swxhr, param);
+		} else {
+			deferred.notify(swxhr, param);
+		}
+		var script = document.createElement('script');
+		script.setAttribute('src', param.url);
+		document.head.appendChild(script);
+		window[param.jsonpCallback] = function(obj) {
+			if (param.statusCode && param.statusCode[xhr.status])
+				deferred.always(param.statusCode[xhr.status]);
+			if (param.context)
+				deferred.resolveWith(param.context, obj, 'success', swxhr);
+			else
+				deferred.resolve(obj, 'success', swxhr);
+		}
+	}
 	function sendAjax(param, deferred, promise) {
 		var swxhr = promise;
 		
@@ -2195,14 +2259,10 @@
 			swxhr.status = xhr.status;
 			swxhr.statusText = xhr.statusText;
 			var converters = $.mergeObject(global.ajaxSettings.converters || {}, param.converters || {});
-			if (param.statusCode) {
-				var ret = {
-					'status': xhr.status,
-					'headers': xhr.getAllResponseHeaders(),
-					'body': xhr.responseText
-				};
-				param.statusCode[xhr.status].call(param, ret);
-			} else if (xhr.status == 200) {
+			if (param.statusCode && param.statusCode[xhr.status]) {
+				deferred.always(param.statusCode[xhr.status]);
+			}
+			if (xhr.status == 200) {
 				if (xhr.getResponseHeader('Last-Modified') && param.ifModified) {
 					return;
 				}
@@ -2323,19 +2383,11 @@
 			deferred.notify(swxhr, param);
 		}
 		
-		// get param
-		if (param) {
-			param = $.mergeObject(global.ajaxSettings, param);
-		}
-		
 		// set url
 		if (param.type.toUpperCase() == 'GET') {
 			if (param.data) {
-				if (typeof param.data == 'string') {
-					param.url += '?' + param.data;
-				} else if (typeof param.data == 'object') {
-					param.url += '?' + $.param(param.data);
-				}
+				param.url += (/\?.+=.+/.test(param.url) ? '&' : '?') + 
+				             (typeof param.data == 'string' ? param.data : $.param(param.data));
 				// set no cache
 				if (! param.cache) {
 					param.url += '&_='+new Date().getTime();
@@ -2343,7 +2395,7 @@
 			} else {
 				// set no cache
 				if (! param.cache) {
-					param.url += '?_='+new Date().getTime();
+					param.url += (/\?.+=.+/.test(param.url) ? '&' : '?') + '_=' + new Date().getTime();
 				}
 			}
 		}
@@ -2446,15 +2498,42 @@
 		} else {
 			var param = arguments[0];
 		}
+		if ( ! ('global' in param)) {
+			param.global = param.dataType !== 'jsonp';
+		}
+		if ( ! ('isLocal' in param)) {
+			param.isLocal = param.url.startswith('file://');
+		}
+		if ( ! ('cache' in param)) {
+			param.cache = ! $.inArray(param.dataType, ['script', 'jsonp']);
+		}
+		if ( ! ('crossDomain' in param)) {
+			if ( ! (/^[\w\+\.\-]+:\/\//.test(param.url))) { // without url prefiex (http://xxx)
+				param.crossDomain = param.dataType == 'jsonp';
+			} else {
+				var matched1 = /^([\w\+\.\-]+:)(?:\/\/([^\/?#:]*)(?::(\d+))?)?/.exec(document.baseURI);
+				var matched2 = /^([\w\+\.\-]+:)(?:\/\/([^\/?#:]*)(?::(\d+))?)?/.exec(param.url);
+				param.crossDomain = matched1[0] != matched2[0];
+			}
+		}
+		if (param.dataType == 'jsonp') {
+			if ( ! param.data) {
+				param.data = {};
+			}
+			var jsonpCallback = param.jsonp ? param.jsonp : 'callback';
+			var callback = param.jsonpCallback ? param.jsonpCallback : 'swift' + new Date().getTime();
+			param.data[jsonpCallback] = callback;
+		}
+		param = $.mergeObject(global.ajaxSettings, param);
+		
 		var deferred = $.Deferred(),
 			promise = deferred.promise();
-		deferred.beforeSend = deferred.progress;
 		deferred.error = deferred.fail;
 		deferred.success = deferred.done;
 		deferred.complete = deferred.always;
-		setTimeout(function() {
-			sendAjax(param, deferred, promise);
-		}, 10);
+		if (param.beforeSend) {
+			promise.progress(param.beforeSend);
+		}
 		if (param.success) {
 			promise.done(param.success);
 		}
@@ -2464,33 +2543,41 @@
 		if (param.complete) {
 			promise.always(param.complete);
 		}
-		promise.progress(function() {
-			global.runningAjaxCount ++;
-		});
-		promise.always(function() {
-			global.runningAjaxCount --;
-		});
-		global.ajaxEvents.forEach(function(ajaxEvent) {
-			switch (ajaxEvent.event) {
-				case 'ajaxStart':
-				case 'ajaxSend':
-					promise.progress(ajaxEvent.ajaxHandler);
-					break;
-				case 'ajaxSuccess':
-					promise.done(ajaxEvent.ajaxHandler);
-					break;
-				case 'ajaxError':
-					promise.fail(ajaxEvent.ajaxHandler);
-					break;
-				case 'ajaxComplete':
-				case 'ajaxStop':
-					promise.always(ajaxEvent.ajaxHandler);
-					break;
-				default:
-					break;
-			}
-		});
-		window.global = global;
+		if (param.global) {
+			promise.progress(function() {
+				global.runningAjaxCount ++;
+			});
+			promise.always(function() {
+				global.runningAjaxCount --;
+			});
+			global.ajaxEvents.forEach(function(ajaxEvent) {
+				switch (ajaxEvent.event) {
+					case 'ajaxStart':
+					case 'ajaxSend':
+						promise.progress(ajaxEvent.ajaxHandler);
+						break;
+					case 'ajaxSuccess':
+						promise.done(ajaxEvent.ajaxHandler);
+						break;
+					case 'ajaxError':
+						promise.fail(ajaxEvent.ajaxHandler);
+						break;
+					case 'ajaxComplete':
+					case 'ajaxStop':
+						promise.always(ajaxEvent.ajaxHandler);
+						break;
+					default:
+						break;
+				}
+			});
+		}
+		
+		if (param.dataType == 'jsonp') {
+			sendJSONP(param, deferred, promise);
+		} else {
+			sendAjax(param, deferred, promise);
+		}
+		
 		return promise;
 	}
 	swift.get = function (url, data, success, dataType) {
@@ -2511,13 +2598,28 @@
 		});
 	}
 	swift.getJSON = function (url, data, success) {
-		var json;
-		return $.ajax({
-			url: url,
-			data: data,
-			success: success,
-			dataType: 'json'
-		});
+		if (url.indexOf('callback=?')) {
+			if (url.indexOf('?callback=?&')) {
+				url = url.split('callback=?&').join('');
+			} else if (url.indexOf('?callback=?')) {
+				url = url.split('callback=?').join('');
+			} else if (url.indexOf('&callback=?')) {
+				url = url.split('callback=?').join('');
+			}
+			return $.ajax({
+				url: url,
+				data: data,
+				success: success,
+				dataType: 'jsonp'
+			});
+		} else {
+			return $.ajax({
+				url: url,
+				data: data,
+				success: success,
+				dataType: 'json'
+			});
+		}
 	}
 	swift.getScript = function (url, success) {
 		return $.ajax({
