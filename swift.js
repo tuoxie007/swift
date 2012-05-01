@@ -42,7 +42,7 @@
 	}
 	
 	// global
-	var global = {events: [], data: {}};
+	var global = {events: [], data: {}, ajaxEvents: [], runningAjaxCount: 0};
 	global.ajaxSettings = {
 		type: 'GET',
 		cache: true,
@@ -60,9 +60,10 @@
 		dataType: '*',
 		ifModified: false,
 		processData: true,
-		traditional: false
+		traditional: false,
+		global: true
 	};
-
+	
 	function Swift(tags, selector, context) {
 		for (var i = 0; i < tags.length; i++) {
 			this[i] = tags[i];
@@ -903,26 +904,91 @@
 		}
 		return this;
 	}
+	function AjaxEvent(context, event, handler) {
+		this.context = context;
+		this.event = event;
+		this.handler = handler;
+		this.ajaxHandler = function() {
+			if (event == 'ajaxStart' && global.runningAjaxCount !== 1) {
+				return;
+			} else if (event == 'ajaxStop' && global.runningAjaxCount !== 0) {
+				return;
+			} else {
+				handler.apply(context, arguments);
+			}
+		}
+	}
+	Swift.prototype.bind = function(event, handler) {
+		if (event.startswith('ajax')) {
+			this.each(function() {
+				var ajaxEvent = new AjaxEvent(this, event, handler);
+				global.ajaxEvents.push(ajaxEvent);
+			});
+		}
+		return this;
+	}
+	Swift.prototype.unbind = function(event, handler) {
+		if (event.startswith('ajax')) {
+			this.each(function() {
+				for (var i=0; i<global.ajaxEvents.length; i++) {
+					var ajaxEvent = global.ajaxEvents[i];
+					if (ajaxEvents.event === event && ajaxEvents.handler === handler) {
+						global.ajaxEvents = $.merge(global.ajaxEvents.slice(0, i), global.ajaxEvents.slice(i+1));
+						break;
+					}
+				}
+				var ajaxEvent = new AjaxEvent(this, event.slice(4).toLowerCase(), handler);
+				global.ajaxEvents.push(ajaxEvent);
+			});
+		}
+		return this;
+	}
 	Swift.prototype.ajaxStart = function(handler) {
-		// TODO
+		this.bind('ajaxStart', handler);
 	}
 	Swift.prototype.ajaxComplete = function(handler) {
-		// TODO
+		this.bind('ajaxComplete', handler);
 	}
 	Swift.prototype.ajaxError = function(handler) {
-		// TODO
+		this.bind('ajaxError', handler);
 	}
 	Swift.prototype.ajaxSend = function(handler) {
-		// TODO
+		this.bind('ajaxSend', handler);
 	}
 	Swift.prototype.ajaxSetup = function(handler) {
-		// TODO
+		this.bind('ajaxSetup', handler);
 	}
 	Swift.prototype.ajaxStop = function(handler) {
-		// TODO
+		this.bind('ajaxStop', handler);
 	}
 	Swift.prototype.ajaxSuccess = function(handler) {
-		// TODO
+		this.bind('ajaxSuccess', handler);
+	}
+	Swift.prototype.load = function () {
+		var sw = this,
+			url, data, completeHanlder;
+		if ($.checkTypes(arguments, ['string', 'object', 'function'])) {
+			url = arguments[0],
+			data = arguments[1],
+			completeHanlder = arguments[2];
+		} else if ($.checkTypes(arguments, ['string', 'object'], true)) {
+			url = arguments[0],
+			data = arguments[1];
+		} else if ($.checkTypes(arguments, ['string', 'function'])) {
+			url = arguments[0],
+			completeHanlder = arguments[1];
+		}
+		return $.ajax({url: url, data: data, async: false, complete: completeHanlder, success: function(ret) {
+			sw.html(ret);
+		}});
+	}
+	Swift.prototype.ajaxPrefilter = function () {
+		if (arguments.length == 1) {
+			var dataTypes = '*', handler = arguments[0];
+		} else {
+			var dataTypes = arguments[0], handler = arguments[1];
+		}
+		global.ajaxPrefilters[dataTypes]  = handler;
 	}
 	var obj = {
 		insertBefore: 'before',
@@ -1547,16 +1613,6 @@
 			return text;
 		}
 	}
-	Swift.prototype.load = function (url) {
-		var mytag = this;
-		swift.get({
-			url: url,
-			success: function (ret) {
-				mytag.html(ret);
-			}
-		});
-		return this;
-	}
 	Swift.prototype.filter = function (selector, context) {
 		if (typeof selector == 'function') {
 			var ret = [];
@@ -1820,6 +1876,13 @@
 		if (this.length)
 			return this[0].checked;
 	}
+	Swift.prototype.promise = function() {
+		// TODO arguments [type] [,target]
+		var job = global.ajaxEvents[this][event];
+		var deferred = $.Deferred(job);
+		return deferred.promise();
+	}
+	
 	// ### Swift ends
 	
 	// selector for ie
@@ -1982,128 +2045,282 @@
 	swift.ajaxSetup = function(param) {
 		global.ajaxSettings = $.mergeObject(global.ajaxSettings, param);
 	}
-	swift.ajax = function (param) {
-		if (arguments.length == 2) {
-			param = arguments[1];
-			param.url = arguments[0];
+	function Deferred(job) {
+		var allCallbacks = {
+				done: [],
+				fail: [],
+				always: [],
+				pipe: [],
+				progress: []
+			},
+			contexts = {},
+			allArgs = {},
+			status = 'pending',
+			deferred = this;
+		function registerCallback(key, callbacks) {
+			$.each(callbacks, function(i, callback) {
+				// console.log(callback.toString());
+				if (typeof callback == 'function') {
+					allCallbacks[key].push(callback);
+				} else if (callback.length) {
+					registerCallback(key, callback);
+				}
+			});
 		}
-		
-		var deferred = {};
-		var callbacks = {};
-		if (param.context) callbacks.context = param.context;
-		if (param.success) callbacks.success = param.success;
-		if (param.error) callbacks.error = param.error;
-		if (param.notmodified) callbacks.notmodified = param.notmodified;
-		if (param.parsererror) callbacks.parsererror = param.parsererror;
-		if (param.abort) callbacks.abort = param.abort;
-		if (param.complete) callbacks.complete = param.complete;
-		if (param.xhr) callbacks.xhr = param.xhr;
-		
-		var swxhr = {
-			setRequestHeader: function(name, value) {
-				this.xhr.setRequestHeader(name, value);
-			},
-			getAllResponseHeaders: function() {
-				return this.xhr.getAllResponseHeaders();
-			},
-			getResponseHeader: function(name) {
-				return this.xhr.getResponseHeader(name);
-			},
-			abort: function() {
-				return this.xhr.abort();
+		function invokeCallbacks(key) {
+			var callbacks = allCallbacks[key],
+				args = allArgs[key],
+				context = contexts[key];
+			callbacks.forEach(function(callback) {
+				callback.apply(context ? context : deferred, args);
+			});
+		}
+		this.always = function() {
+			registerCallback('always', arguments);
+			if (status !== 'pending') {
+				invokeCallbacks('done');
+				invokeCallbacks('fail');
 			}
-		};
+			return this;
+		}
+		this.done = function() {
+			if (status === 'done') {
+				invokeCallbacks('done');
+			}
+			registerCallback('done', arguments);
+			return this;
+		}
+		this.fail = function() {
+			if (status === 'fail') {
+				invokeCallbacks('fail');
+			}
+			registerCallback('fail', arguments);
+			return this;
+		}
+		this.notify = function() {
+			if (status === 'pending') {
+				invokeCallbacks('progress');
+			}
+			return this;
+		}
+		this.pipe = function() {
+			registerCallback('pipe', arguments);
+			return this;
+		}
+		this.progress = function() {
+			registerCallback('progress', arguments);
+			return this;
+		}
+		this.then = function(done, fail, progress) {
+			registerCallback('done', [done]);
+			registerCallback('fail', [fail]);
+			if (progress)
+				registerCallback('progress', [progress]);
+			return this;
+		}
+		this.isRejected = function() {
+			return status === 'rejected';
+		}
+		this.isResolved = function() {
+			return status === 'resolved';
+		}
+		this.resolve = function() {
+			status = 'resolved';
+			allArgs.done = arguments;
+			invokeCallbacks('done');
+			invokeCallbacks('always');
+			return this;
+		}
+		this.reject = function() {
+			status = 'rejected';
+			allArgs.fail = arguments;
+			invokeCallbacks('fail');
+			invokeCallbacks('always');
+			return this;
+		}
+		this.rejectWith = function(context) {
+			contexts.fail = context;
+			return this.reject.apply(this, $.slice(arguments, 1));
+		}
+		this.resolveWith = function(context) {
+			contexts.done = context;
+			return this.resolve.apply(this, $.slice(arguments, 1));
+		}
+		this.notifyWith = function(context) {
+			contexts.progress = context;
+			return this.notify.apply(this, $.slice(arguments, 1));
+		}
+		this.state = function() {
+			return status;
+		}
+		this.promise = function() {
+			var promise = {};
+			var funs = ['always', 
+						'done', 
+						'fail', 
+						'isRejected', 
+						'isResolved', 
+						'pipe', 
+						'progress', 
+						'promise', 
+						'state', 
+						'then'];
+			for (var attr in deferred) {
+				if ($.inArray(attr, funs)) {
+					(function (attr) {
+						promise[attr] = function() {
+							return deferred[attr].apply(deferred, arguments);
+						}
+					})(attr);
+				}
+			}
+			return promise;
+		}
+		if (job) {
+			job();
+		}
+	}
+	swift.Deferred = function(job) {
+		var deferred = new Deferred(job);
+		return deferred;
+	}
+	swift.promise = function() {
+		return $.Deferred.apply(this, arguments).promise();
+	}
+	function sendAjax(param, deferred, promise) {
+		var swxhr = promise;
 		
 		// define processor
-		function responseProcessor(swxhr, param) {
-			swxhr.status = swxhr.status;
-			swxhr.statusText = swxhr.statusText;
+		function responseProcessor(xhr, param) {
+			swxhr.status = xhr.status;
+			swxhr.statusText = xhr.statusText;
+			var converters = $.mergeObject(global.ajaxSettings.converters || {}, param.converters || {});
 			if (param.statusCode) {
 				var ret = {
-					'status': swxhr.xhr.status,
-					'headers': swxhr.xhr.getAllResponseHeaders(),
-					'body': swxhr.xhr.responseText
+					'status': xhr.status,
+					'headers': xhr.getAllResponseHeaders(),
+					'body': xhr.responseText
 				};
-				param.statusCode[swxhr.xhr.status].call(param, ret);
-			} else if (swxhr.xhr.status == 200) {
-				if (swxhr.xhr.getResponseHeader('Last-Modified') && param.ifModified) {
-					return deferred;
+				param.statusCode[xhr.status].call(param, ret);
+			} else if (xhr.status == 200) {
+				if (xhr.getResponseHeader('Last-Modified') && param.ifModified) {
+					return;
 				}
-				if (callbacks.success) {
-					var dataType = param.dataType,
-						ret;
-					if (param.dataFilter) {
-						var responseText = swxhr.responseText = callbacks.dataFilter.call(param, swxhr.xhr.responseText, param.dataType);
+				var dataType = param.dataType,
+					ret;
+				if (param.dataFilter) {
+					var responseText = swxhr.responseText = callbacks.dataFilter.call(param, xhr.responseText, param.dataType);
+				} else {
+					var responseText = swxhr.responseText = xhr.responseText;
+				}
+				if (dataType == '*' || dataType.toLowerCase() in ['html', 'text']) {
+					if (converters['* text']) {
+						ret = converters['* text'](responseText);
 					} else {
-						var responseText = swxhr.responseText = swxhr.xhr.responseText;
+						ret = responseText;
 					}
-					if (dataType == undefined || dataType.toLowerCase() in ['html', 'text']) {
-						if (param.converters['* text']) {
-							ret = param.converters['* text'](responseText);
+				} else if (dataType.toLowerCase() == 'json') {
+					try {
+						if (converters['text html']) {
+							ret = converters['text html'](responseText);
 						} else {
-							ret = responseText;
+							ret = $.parseJSON(responseText);
 						}
-					} else if (dataType.toLowerCase() == 'json') {
-						try {
-							if (param.converters['text html']) {
-								ret = param.converters['text html'](responseText);
-							} else {
-								ret = $.parseJSON(responseText);
-							}
-						} catch (e) {
-							callbacks.parsererror.call(param, responseText);
+					} catch (e) {
+						if (param.context) {
+							deferred.rejectWith(param.context, swxhr, 'error', e);
+						} else {
+							deferred.reject(swxhr, 'error', e);
 						}
-					} else if (dataType.toLowerCase() == 'xml') {
-						swxhr.responseXML = swxhr.xhr.responseXML;
-						try {
-							if (param.converters['text xml']) {
-								ret = param.converters['text xml'](responseText);
-							} else {
-								ret = $.parseXML(responseText);
-							}
-						} catch (e) {
-							callbacks.parsererror.call(param, responseText);
-						}
+						// callbacks.parsererror.call(param, responseText);
 					}
-					callbacks.success.call(param, ret, statusText, swxhr);
+				} else if (dataType.toLowerCase() == 'xml') {
+					swxhr.responseXML = xhr.responseXML;
+					try {
+						if (converters['text xml']) {
+							ret = converters['text xml'](responseText);
+						} else {
+							ret = $.parseXML(responseText);
+						}
+					} catch (e) {
+						if (param.context) {
+							deferred.rejectWith(param.context, swxhr, 'error', e);
+						} else {
+							deferred.reject(swxhr, 'error', e);
+						}
+						// callbacks.parsererror.call(param, responseText);
+					}
 				}
-			} else if (swxhr.xhr.status == 304) {
+				if (param.context) {
+					deferred.resolveWith(param.context, ret, 'success', swxhr);
+				} else {
+					deferred.resolve(ret, 'success', swxhr);
+				}
+				// callbacks.success.call(param, ret, statusText, swxhr);
+			} else if (xhr.status == 304) {
 				if (param.ifModified) {
-					return deferred;
+					return;
 				}
 				ret = 'notmodified';
-				if (callbacks.notmodified) {
-					callbacks.notmodified.call(param, ret);
+				if (param.context) {
+					deferred.resolveWith(param.context, ret, 'notmodified', swxhr);
+				} else {
+					deferred.resolve(ret, 'notmodified', swxhr);
 				}
-			} else if (callbacks.error) {
+				// callbacks.notmodified.call(param, ret);
+			} else {
 				var ret = {
 					'error': 'HTTP_Error',
-					'status': swxhr.xhr.status,
-					'headers': swxhr.xhr.getAllResponseHeaders(),
-					'body': swxhr.xhr.responseText
+					'status': xhr.status,
+					'headers': xhr.getAllResponseHeaders(),
+					'body': xhr.responseText
 				};
-				callbacks.error.call(param, swxhr, swxhr.xhr.status);
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'error');
+				} else {
+					deferred.reject(swxhr, 'error');
+				}
+				// callbacks.error.call(param, swxhr, swxhr.xhr.status);
 			}
-			if (callbacks.complete) {
-				callbacks.complete.call(param, ret);
-			}
+			// callbacks.complete.call(param, ret);
 		}
 		
 		// create Request
-		if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
+		if (param.xhr) {
+			var xmlhttp = param.xhr();
+		} else if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
 			var xmlhttp = new XMLHttpRequest();
 		} else { // code for IE6, IE5
-			var xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-			// var xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+			var xmlhttp = new ActiveXObject('Microsoft.XMLHTTP');
+			// var xmlhttp = new ActiveXObject('Msxml2.XMLHTTP');
 			// var xmlhttp = new XDomainRequest();
 		}
-		swxhr.xhr = xmlhttp;
+
+		swxhr.statusCode = function() {
+			return xmlhttp.status;
+		}
+		swxhr.overrideMimeType = function(value) {
+			if (xmlhttp.overrideMimeType)
+				xmlhttp.overrideMimeType(value);
+		}
+		swxhr.setRequestHeader = function(name, value) {
+			xmlhttp.setRequestHeader(name, value);
+		}
+		swxhr.getAllResponseHeaders = function() {
+			return xmlhttp.getAllResponseHeaders();
+		}
+		swxhr.getResponseHeader = function(name) {
+			return xmlhttp.getResponseHeader(name);
+		}
+		swxhr.abort = function() {
+			return xmlhttp.abort();
+		}
 		
 		// call beforeSend function
-		if (callbacks.beforeSend) {
-			if (! callbacks.beforeSend(swxhr, param)) {
-				return;
-			}
+		if (param.context) {
+			deferred.notifyWith(swxhr, param);
+		} else {
+			deferred.notify(swxhr, param);
 		}
 		
 		// get param
@@ -2136,8 +2353,7 @@
 		if (param.mimeType && xmlhttp.overrideMimeType) {
 			xmlhttp.overrideMimeType(param.mimeType);
 		}
-		var headers = global.ajaxSettings.headers || {},
-			headers = $.mergeObject(global.ajaxSettings.headers, param.headers || {});
+		var headers = $.mergeObject(global.ajaxSettings.headers || {}, param.headers || {});
 		if (true && !headers['X-Requested-With']) {
 			headers['X-Requested-With'] = 'XMLHttpRequest';
 		}
@@ -2154,17 +2370,13 @@
 		if (param.timeout) {
 			setTimeout(function () {
 				xmlhttp.abort();
-				if (callbacks.abort) {
-					callbacks.abort.call(param);
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'timeout');
+				} else {
+					deferred.reject(swxhr, 'timeout');
 				}
+				// callbacks.abort.call(param);
 			}, param.timeout);
-		}
-		
-		// connect to server
-		if (param.username) {
-			xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
-		} else {
-			xmlhttp.open(param.type, param.url, param.async);
 		}
 		
 		// send data
@@ -2175,27 +2387,42 @@
 				var data = param.data;
 			} else {
 				if (! param.contentType)
-					xmlhttp.setRequestHeader('Content-Type', 
-					                         'application/x-www-form-urlencoded; charset=UTF-8');
+					xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
 				var data = $.param(param.data);
 			}
 			if (param.contentType) {
 				xmlhttp.setRequestHeader('Content-Type', param.contentType);
 			}
+			
+			// connect to server
+			if (param.username) {
+				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+			} else {
+				xmlhttp.open(param.type, param.url, param.async);
+			}
 			xmlhttp.send(data);
 		}
 		try {
+			// connect to server
+			if (param.username) {
+				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+			} else {
+				xmlhttp.open(param.type, param.url, param.async);
+			}
 			xmlhttp.send();
 		} catch(e) {
-			if (param.error) {
-				var ret = {
-					'error': 'Swift_Error',
-					'status': xmlhttp.status,
-					'headers': xmlhttp.getAllResponseHeaders(),
-					'body': xmlhttp.responseText
-				};
-				param.error.call(param, ret);
+			var ret = {
+				'error': 'Swift_Error',
+				'status': xmlhttp.status,
+				'headers': xmlhttp.getAllResponseHeaders(),
+				'body': xmlhttp.responseText
+			};
+			if (param.context) {
+				deferred.rejectWith(param.context, swxhr, 'error', e);
+			} else {
+				deferred.reject(swxhr, 'error', e);
 			}
+			// param.error.call(param, ret);
 		}
 		
 		// set processor
@@ -2203,36 +2430,101 @@
 			xmlhttp.onreadystatechange = function() {
 				swxhr.readyState = xmlhttp.readyState;
 				if (xmlhttp.readyState == 4) {
-					responseProcessor(swxhr, param);
+					responseProcessor(xmlhttp, param);
 				}
 			}
 		} else {
-			responseProcessor(swxhr, param);
+			responseProcessor(xmlhttp, param);
 		}
-		
-		return deferred;
 	}
-	swift.get = function (param) {
-		// TODO
-		param.method = 'GET';
-		return swift.ajax(param);
+	swift.ajax = function (param) {
+		if (arguments.length == 2) {
+			var param = arguments[1];
+			param.url = arguments[0];
+		} else if (arguments.length == 1 && typeof arguments[0] == 'string') {
+			var param = {url: arguments[0]};
+		} else {
+			var param = arguments[0];
+		}
+		var deferred = $.Deferred(),
+			promise = deferred.promise();
+		deferred.beforeSend = deferred.progress;
+		deferred.error = deferred.fail;
+		deferred.success = deferred.done;
+		deferred.complete = deferred.always;
+		setTimeout(function() {
+			sendAjax(param, deferred, promise);
+		}, 10);
+		if (param.success) {
+			promise.done(param.success);
+		}
+		if (param.error) {
+			promise.fail(param.error);
+		}
+		if (param.complete) {
+			promise.always(param.complete);
+		}
+		promise.progress(function() {
+			global.runningAjaxCount ++;
+		});
+		promise.always(function() {
+			global.runningAjaxCount --;
+		});
+		global.ajaxEvents.forEach(function(ajaxEvent) {
+			switch (ajaxEvent.event) {
+				case 'ajaxStart':
+				case 'ajaxSend':
+					promise.progress(ajaxEvent.ajaxHandler);
+					break;
+				case 'ajaxSuccess':
+					promise.done(ajaxEvent.ajaxHandler);
+					break;
+				case 'ajaxError':
+					promise.fail(ajaxEvent.ajaxHandler);
+					break;
+				case 'ajaxComplete':
+				case 'ajaxStop':
+					promise.always(ajaxEvent.ajaxHandler);
+					break;
+				default:
+					break;
+			}
+		});
+		window.global = global;
+		return promise;
 	}
-	swift.post = function (param) {
-		// TODO
-		param.method = 'POST';
-		return swift.ajax(param);
+	swift.get = function (url, data, success, dataType) {
+		return $.ajax({
+			url: url,
+			data: data,
+			success: success,
+			dataType: dataType
+		});
 	}
-	swift.getJSON = function (param) {
-		// TODO
+	swift.post = function (url, data, success, dataType) {
+		return $.ajax({
+			type: 'POST',
+			url: url,
+			data: data,
+			success: success,
+			dataType: dataType
+		});
 	}
-	swift.getScript = function (param) {
-		// TODO
+	swift.getJSON = function (url, data, success) {
+		var json;
+		return $.ajax({
+			url: url,
+			data: data,
+			success: success,
+			dataType: 'json'
+		});
 	}
-	swift.load = function (param) {
-		// TODO
-	}
-	swift.ajaxPrefilter = function (param) {
-		// TODO
+	swift.getScript = function (url, success) {
+		return $.ajax({
+			url: url,
+			dataType: 'script',
+			success: success
+		});
 	}
 	swift.isInt = function (n) {
 		// Attension: 1E209 is no a int here
@@ -2352,7 +2644,11 @@
 		return s.join('&').replace(/%20/g, '+');
 	}
 	swift.merge = function () {
-		return [].concat(swift.slice(arguments));
+		var ret = [];
+		for (var i=0; i<arguments.length; i++) {
+			ret = ret.concat(arguments[i]);
+		}
+		return ret;
 	}
 	swift.isNumberic = function (data) {
 		return !isNaN(parseFloat(data)) && isFinite(data);
