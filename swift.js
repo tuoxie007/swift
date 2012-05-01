@@ -77,12 +77,19 @@
 		
 		this.stack = context ? [{'swift': new Swift([context])}] : []
 	}
+	var slice = Array.prototype.slice;
 	// extend Swift prototype
-	Swift.prototype = Array.prototype;
+	// Swift.prototype = Array.prototype;
 	Swift.prototype.constructor = Swift;
-	Swift.prototype.sslice = function(start, end) {
-		var ret = this.slice(start, end);
-		return this.pushStack($(ret), 'sslice', start, end);
+	Swift.prototype.toArray = function() {
+		return this.slice();
+	}
+	Swift.prototype.push = Array.prototype.push;
+	Swift.prototype.sort = Array.prototype.sort;
+	Swift.prototype.splice = Array.prototype.splice;
+	Swift.prototype.slice = function(start, end) {
+		var ret = slice.call(this, start, end);
+		return this.pushStack($(ret), 'slice', start, end);
 	}
 	Swift.prototype.find = function (arg1) { // TEST
 		var found = undefined;
@@ -1963,8 +1970,8 @@
 			return typeof args[index] === type;
 		}).length == types.length;
 	}
-	swift.slice = function (items) {
-		return Array.prototype.slice.call(items);
+	swift.slice = function (items, start, end) {
+		return slice.call(items, start, end);
 	}
 	swift.type = function (value) {
 		var type = Object.prototype.toString.call(value).slice(8, -1);
