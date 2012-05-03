@@ -126,7 +126,7 @@
 		Array.prototype.forEach.call(this, function(item, index, items) {
 			callback.call(item, index, item, items);
 		});
-		return;
+		return this;
 	}
 	function SwiftEvent(context, selector, action, data, handler, one) {
 		this.context = context;
@@ -1895,7 +1895,7 @@
 	// ### Swift ends
 	
 	// selector for ie
-	if (!document.querySelectorAll) var querySelectorAll = function(selector) {
+	if (!document.querySelectorAll) window.querySelectorAll = function(selector) {
 		var head = document.documentElement.firstChild;
 		var styleTag = document.createElement("STYLE");
 		head.appendChild(styleTag);
@@ -1909,6 +1909,7 @@
 		return result;
 	}
 	
+	var _$ = window.$;
 	window.$ = window.swift = swift = function (selector, ctx) {
 		if (!selector) return null;
 		if (!ctx) ctx = window.document;
@@ -1922,13 +1923,33 @@
 				if (matched && matched[1]) {
 					var tmpDiv = $('<div></div>'),
 						tags = tmpDiv.html(matched[1])[0].childNodes;
+				} else if (ctx.querySelectorAll) {
+					var tags = ctx.querySelectorAll(selector);
+				} else {
+					var tags = querySelectorAll(selector);
+					if (ctx) {
+						var ret = [];
+						for (var i=0; i<tags.length; i++) {
+							var ele = tags[i].parentNode;
+							while (ele) {
+								if (ele === ctx) {
+									ret.push(tags[i]);
+									break;
+								}
+								ele = ele.parentNode;
+							}
+						}
+						tags = ret;
+					}
 				}
-				else var tags = ctx.querySelectorAll ? ctx.querySelectorAll(selector) : querySelectorAll.call(ctx, selector);
 			}
-		} else if (selector instanceof HTMLElement || selector instanceof HTMLDocument || selector instanceof Text || selector === window) var tags = [selector];
-		else if (type == 'Array' || type == 'NodeList') var tags = selector;
-		else if (type == 'Swift') return selector;
-		else if (type == 'Function') {
+		} else if (selector.nodeType || selector === window) {
+			var tags = [selector];
+		} else if (type == 'Array' || type == 'NodeList') {
+			var tags = selector;
+		} else if (type == 'Swift') {
+			return selector;
+		} else if (type == 'Function') {
 			//TODO validate this stuff
 			if (/loaded|complete/.test(document.readyState)) {
 				selector();
@@ -1949,6 +1970,9 @@
 			return;
 		}
 		return new Swift(tags, selector, ctx);
+	}
+	swift.noConflict = function() {
+		window.$ = _$;
 	}
 	// swift.error = console ? console.error : alert;
 	// swift.log = console ? console.log : alert;
@@ -2248,7 +2272,7 @@
 		}
 		var script = document.createElement('script');
 		script.setAttribute('src', param.url);
-		document.head.appendChild(script);
+		document.documentElement.firstChild.appendChild(script);
 		window[param.jsonpCallback] = function(obj) {
 			if (param.statusCode && param.statusCode[xhr.status])
 				deferred.always(param.statusCode[xhr.status]);
