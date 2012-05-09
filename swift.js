@@ -66,6 +66,8 @@
 		crossDomain: false
 	};
 	
+	
+	
 	function Swift(tags, selector, context) {
 		for (var i = 0; i < tags.length; i++) {
 			this[i] = tags[i];
@@ -170,7 +172,7 @@
 		}
 	}
 	Swift.prototype.on = function() {
-		if (swift.checkTypes(arguments, ['string', 'string', 'object', 'function'])) {
+		if ($.checkTypes(arguments, ['string', 'string', 'object', 'function'])) {
 			var args = (function(events, selector, data, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -178,7 +180,7 @@
 				});
 				return [event_map, selector, data];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['string', 'string', 'function'])) {
+		} else if ($.checkTypes(arguments, ['string', 'string', 'function'])) {
 			var args = (function(events, selector, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -186,7 +188,7 @@
 				});
 				return [event_map, selector];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['string', 'object', 'function'])) {
+		} else if ($.checkTypes(arguments, ['string', 'object', 'function'])) {
 			var args = (function(events, data, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -194,7 +196,7 @@
 				});
 				return [event_map, undefined, data];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['string', 'function'])) {
+		} else if ($.checkTypes(arguments, ['string', 'function'])) {
 			var args = (function(events, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -202,18 +204,18 @@
 				});
 				return [event_map];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['object', 'string'])) {
+		} else if ($.checkTypes(arguments, ['object', 'string'])) {
 			var args = arguments;
-		} else if (swift.checkTypes(arguments, ['object', 'object'])) {
+		} else if ($.checkTypes(arguments, ['object', 'object'])) {
 			var args = [arguments[0], undefined, arguments[1]];
-		} else if (swift.checkTypes(arguments, ['object'])) {
+		} else if ($.checkTypes(arguments, ['object'])) {
 			var args = arguments;
 		} else {
 			throw new TypeError();
 		}
 		var eles = this;
 		(function(event_map, selector, data) {
-			swift.each(event_map, function(eve, handler) {
+			$.each(event_map, function(eve, handler) {
 				eles.each(function(i, ele) {
 					var swift_event = new SwiftEvent(ele, selector, eve, data, handler, eles.isOne);
 					swift_event.bind();
@@ -228,7 +230,7 @@
 		return this;
 	}
 	Swift.prototype.off = function() {
-		if (swift.checkTypes(arguments, ['string', 'string', 'function'])) {
+		if ($.checkTypes(arguments, ['string', 'string', 'function'])) {
 			var args = (function(events, selector, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -236,7 +238,7 @@
 				});
 				return [event_map, selector];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['string', 'function'])) {
+		} else if ($.checkTypes(arguments, ['string', 'function'])) {
 			var args = (function(events, handler) {
 				var event_map = {};
 				events.trim().split('/\s+/').forEach(function(eve) {
@@ -244,12 +246,12 @@
 				});
 				return [event_map];
 			}).apply(this, arguments);
-		} else if (swift.checkTypes(arguments, ['string'])) {
+		} else if ($.checkTypes(arguments, ['string'])) {
 			(function(events, selector) {
 				var events = events.trim().split('/\s+/');
 				this.each(function(i, ele) {
 					events.forEach(function(action) {
-						global.events = swift.filter(global.events, function(swift_event) {
+						global.events = $.filter(global.events, function(swift_event) {
 							if (swift_event.context === ele && 
 								swift_event.action === action && 
 								swift_event.selector === selector) {
@@ -262,7 +264,7 @@
 				});
 			}).apply(this, arguments);
 			return;
-		} else if (swift.checkTypes(arguments, ['object'])) {
+		} else if ($.checkTypes(arguments, ['object'])) {
 			var args = arguments;
 		} else {
 			throw new TypeError();
@@ -271,8 +273,8 @@
 		var eles = this;
 		(function(event_map, selector) {
 			eles.each(function(i, ele) {
-				swift.each(event_map, function(action, handler) {
-					global.events = swift.filter(global.events, function(swift_event) {
+				$.each(event_map, function(action, handler) {
+					global.events = $.filter(global.events, function(swift_event) {
 						if (swift_event.context === ele && 
 							swift_event.action === action && 
 							swift_event.selector === selector &&
@@ -287,25 +289,46 @@
 		}).apply(this, args);
 		return this;
 	}
+	Swift.prototype.bind = function() {
+		// TODO
+	}
+	Swift.prototype.unbind = function() {
+		// TODO
+	}
 	Swift.prototype.toggle = function () {
-		/*
-			Bind two or more handlers to the matched elements, to be executed on alternate clicks.
-			.toggle(handler(eventObject), handler(eventObject) [, handler(eventObject)])
-		*/
-		return (function(cb1, cb2, cb3) {
-			return this.on('click', function () {
-				this.clicked = this.clicked ? (this.clicked + 1) : 1;
-				(this.clicked % 2 ? cb1 : cb2).apply(this, arguments);
-				if (cb3) cb3.apply(this, arguments);
-			});
-		}).apply(this, arguments);
+		if ($.checkTypes(arguments, ['function', 'function'])) {
+			/*
+				Bind two or more handlers to the matched elements, to be executed on alternate clicks.
+				.toggle(handler(eventObject), handler(eventObject) [, handler(eventObject)])
+			*/
+			return (function(cb1, cb2, cb3) {
+				return this.on('click', function () {
+					this.clicked = this.clicked ? (this.clicked + 1) : 1;
+					(this.clicked % 2 ? cb1 : cb2).apply(this, arguments);
+					if (cb3) cb3.apply(this, arguments);
+				});
+			}).apply(this, arguments);
+		} else {
+			// TODO
+			/*
+			.toggle( [duration] [, callback] )
+				durationA string or number determining how long the animation will run.
+				callbackA function to call once the animation is complete.
+			.toggle( [duration] [, easing] [, callback] )
+				durationA string or number determining how long the animation will run.
+				easingA string indicating which easing function to use for the transition.
+				callbackA function to call once the animation is complete.
+			.toggle( showOrHide )
+				showOrHideA Boolean indicating whether to show or hide the elements.
+			*/
+		}
 	}
 	Swift.prototype.one = function() {
 		this.isOne = true;
 		this.on.apply(this, arguments);
 		this.isOne = false;
 		global.current_events.forEach(function() {
-			global.events = swift.filter(global.events, function(swift_event) {
+			global.events = $.filter(global.events, function(swift_event) {
 				return swift_event in global.current_events;
 			}, true);
 		});
@@ -313,7 +336,7 @@
 		return this;
 	}
 	Swift.prototype.trigger = function(event) {
-		swift.filter(global.events, function(swift_event) {
+		$.filter(global.events, function(swift_event) {
 			if (swift_event.context === ele && 
 				swift_event.action === action && 
 				swift_event.selector === selector &&
@@ -327,6 +350,9 @@
 			this[event].call(this);
 		});
 		return this;
+	}
+	Swift.prototype.triggerHandler = function() {
+		// TODO
 	}
 	
 	var actions = 'change click dbclick focus focusin focusout hover keydown keypress keyup load mousedown mouseenter mouseleave mousemove mouseout mouseup resize scroll select submit unload error'.split(' ');
@@ -359,7 +385,7 @@
 					else options[i].removeAttribute('selected');
 				}
 			} else if (this.tag() == 'input' && this.attr('type') == 'checkbox') {
-				var values = swift.slice(value);
+				var values = $.slice(value);
 				if (!values.length) values = [value];
 				this.each(function () {
 					if (this.tagName.toLowerCase() == 'input' && this.type == 'checkbox') {
@@ -452,14 +478,14 @@
 			.toggleClass([switch])
 			.toggleClass(function(index, class, switch) [, switch])
 		*/
-		if (swift.checkTypes(arguments, ['string'])) {
+		if ($.checkTypes(arguments, ['string'])) {
 			if (arguments[1] === false) return;
 			arguments[0].split('/\s+/').forEach(function(className) {
 				this.toggleClass(className);
 			});
-		} else if (swift.checkTypes(arguments, ['boolean'])) {
+		} else if ($.checkTypes(arguments, ['boolean'])) {
 			// TODO
-		} else if (swift.checkTypes(arguments, ['function', 'boolean'])) {
+		} else if ($.checkTypes(arguments, ['function', 'boolean'])) {
 			// TODO
 		}
 		return this;
@@ -485,22 +511,22 @@
 		}
 	}
 	Swift.prototype.css = function (name) {
-		if (swift.checkTypes(arguments, ['string'], true)) {
+		if ($.checkTypes(arguments, ['string'], true)) {
 			if (!this.length) return undefined;
 			if (this[0].currentStyle)
-				return this[0].currentStyle[swift.styleName(name)];
+				return this[0].currentStyle[$.styleName(name)];
 			else if (document.defaultView.getComputedStyle)
 				return document.defaultView.getComputedStyle(this[0], null).getPropertyValue(name);
-		} else if (swift.checkTypes(arguments, ['string', 'string'], true)) {
+		} else if ($.checkTypes(arguments, ['string', 'string'], true)) {
 			var elem = this[0],
 				name = arguments[0],
 				value = arguments[1];
 			if (elem && elem.nodeType !== 3 && elem.nodeType !== 8 && elem.style)
 				this.each(function () {
-					name = swift.styleName(name);
+					name = $.styleName(name);
 					this.style[name] = value;
 				});
-		} else if (swift.checkTypes(arguments, ['object'], true)) {
+		} else if ($.checkTypes(arguments, ['object'], true)) {
 			var styles = arguments[0];
 			for (var name in styles) {
 				this.css(name, styles[name]);
@@ -512,11 +538,11 @@
 	}
 	Swift.prototype.userStyle = function (name) {
 		if (name && this.length)
-			return this[0].style[swift.styleName(name)];
+			return this[0].style[$.styleName(name)];
 	}
 	Swift.prototype.width = function (value) {
 		if (arguments.length) {
-			if (!swift.isInt(value)) {
+			if (!$.isInt(value)) {
 				return this.css('width', value);
 			} else {
 				return this.css('width', value + 'px');
@@ -526,22 +552,22 @@
 		}
 	}
 	Swift.prototype.innerWidth = function () {
-		var width = swift.pixelAsInt(this.width());
-		var paddingLeftWidth = swift.pixelAsInt(this.css('padding-left')) || 0;
-		var paddingRightWidth = swift.pixelAsInt(this.css('padding-right')) || 0;
-		var borderLeftWidth = swift.pixelAsInt(this.css('border-left-width')) || 0;
-		var borderRightWidth = swift.pixelAsInt(this.css('border-right-width')) || 0;
+		var width = $.pixelAsInt(this.width());
+		var paddingLeftWidth = $.pixelAsInt(this.css('padding-left')) || 0;
+		var paddingRightWidth = $.pixelAsInt(this.css('padding-right')) || 0;
+		var borderLeftWidth = $.pixelAsInt(this.css('border-left-width')) || 0;
+		var borderRightWidth = $.pixelAsInt(this.css('border-right-width')) || 0;
 		return width + paddingLeftWidth + paddingRightWidth + borderLeftWidth + borderRightWidth + 'px';
 	}
 	Swift.prototype.outterWidth = function () {
-		var innerWidth = swift.pixelAsInt(this.innerWidth());
-		var marginLeftWidth = swift.pixelAsInt(this.css('margin-left')) || 0;
-		var marginRightWidth = swift.pixelAsInt(this.css('margin-right')) || 0;
+		var innerWidth = $.pixelAsInt(this.innerWidth());
+		var marginLeftWidth = $.pixelAsInt(this.css('margin-left')) || 0;
+		var marginRightWidth = $.pixelAsInt(this.css('margin-right')) || 0;
 		return innerWidth + marginLeftWidth + marginRightWidth + 'px';
 	}
 	Swift.prototype.height = function (value) {
 		if (arguments.length) {
-			if (!swift.isInt(value)) {
+			if (!$.isInt(value)) {
 				return this.css('height', value);
 			} else {
 				return this.css('height', value + 'px');
@@ -551,17 +577,17 @@
 		}
 	}
 	Swift.prototype.innerHeight = function () {
-		var height = swift.pixelAsInt(this.height());
-		var paddingLeftHeight = swift.pixelAsInt(this.css('padding-left')) || 0;
-		var paddingRightHeight = swift.pixelAsInt(this.css('padding-right')) || 0;
-		var borderLeftHeight = swift.pixelAsInt(this.css('border-left-width')) || 0;
-		var borderRightHeight = swift.pixelAsInt(this.css('border-right-width')) || 0;
+		var height = $.pixelAsInt(this.height());
+		var paddingLeftHeight = $.pixelAsInt(this.css('padding-left')) || 0;
+		var paddingRightHeight = $.pixelAsInt(this.css('padding-right')) || 0;
+		var borderLeftHeight = $.pixelAsInt(this.css('border-left-width')) || 0;
+		var borderRightHeight = $.pixelAsInt(this.css('border-right-width')) || 0;
 		return height + paddingLeftHeight + paddingRightHeight + borderLeftHeight + borderRightHeight + 'px';
 	}
 	Swift.prototype.outterHeight = function () {
-		var innerHeight = swift.pixelAsInt(this.innerHeight());
-		var marginLeftHeight = swift.pixelAsInt(this.css('margin-left')) || 0;
-		var marginRightHeight = swift.pixelAsInt(this.css('margin-right')) || 0;
+		var innerHeight = $.pixelAsInt(this.innerHeight());
+		var marginLeftHeight = $.pixelAsInt(this.css('margin-left')) || 0;
+		var marginRightHeight = $.pixelAsInt(this.css('margin-right')) || 0;
 		return innerHeight + marginLeftHeight + marginRightHeight + 'px';
 	}
 	Swift.prototype.offset = function () {
@@ -573,8 +599,8 @@
 			if (!ele.offsetParent) {
 				curLeft += ele.offsetLeft;
 				curTop += ele.offsetTop;
-				curLeft += swift.pixelAsInt($(ele).css('margin-left')) || 0;
-				curTop += swift.pixelAsInt($(ele).css('margin-top')) || 0;
+				curLeft += $.pixelAsInt($(ele).css('margin-left')) || 0;
+				curTop += $.pixelAsInt($(ele).css('margin-top')) || 0;
 			} else {
 				do {
 					curLeft += ele.offsetLeft;
@@ -627,7 +653,7 @@
 			if (arguments.length) {
 				var value = arguments[0];
 				if (typeof value === 'string' && value.endswith('px'))
-					value = swift.pixelAsInt(value);
+					value = $.pixelAsInt(value);
 				if (ele === document.body || ele === window) {
 					if (window.pageXOffset)
 						window.pageXOffset = value;
@@ -663,7 +689,7 @@
 			if (arguments.length) {
 				var value = arguments[0];
 				if (typeof value === 'string' && value.endswith('px'))
-					value = swift.pixelAsInt(value);
+					value = $.pixelAsInt(value);
 				if (ele === document.body || ele === window) {
 					if (window.pageYOffset)
 						window.pageYOffset = value;
@@ -732,9 +758,9 @@
 			return name ? this : undefined;
 		if (arguments.length === 0) {
 			return global.data[this[0]];
-		} else if (swift.checkTypes(arguments, ['string'], true)) {
+		} else if ($.checkTypes(arguments, ['string'], true)) {
 			return global.data[this[0]] && global.data[this[0]][name];
-		} else if (swift.checkTypes(arguments, ['object'], true)) {
+		} else if ($.checkTypes(arguments, ['object'], true)) {
 			var values = arguments[0];
 			this.each(function() {
 				for (var name in values) {
@@ -765,7 +791,7 @@
 						for (var i in names) {
 							delete global.data[this][names[i]];
 						}
-						if (swift.emptyObject($(this).data())) {
+						if ($.isEmptyObject($(this).data())) {
 							delete global.data[this];
 						}
 					}
@@ -776,7 +802,7 @@
 						for (var i=0; i<name.length; i++) {
 							delete global.data[this][name[i]];
 						}
-						if (swift.emptyObject($(this).data())) {
+						if ($.isEmptyObject($(this).data())) {
 							delete global.data[this];
 						}
 					}
@@ -849,69 +875,6 @@
 				mappings.push({k: encodeURIComponent(data[k])});
 			return mappings;
 		}
-	}
-	Swift.prototype.after = function () {
-		if (swift.checkTypes(arguments, ['function'], true)) {
-			var callback = arguments[0];
-			this.each(function(i) {
-				$(this).after(callback.call(this, i));
-			});
-		} else {
-			for (var i=0; i<arguments.length; i++) {
-				var arg = arguments[i];
-				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) {
-					// ugly test argj is a element object
-					this.each(function(index) {
-						var children = this.parentNode.childNodes;
-						if (children[children.length - 1] == this) {
-							this.parentNode.appendChild(index ? arg.cloneNode(true) : arg);
-						} else {
-							var next = false;
-							for (var j=0; j<children.length; j++) {
-								if (children[j] === this) {
-									next = children[j+1];
-								}
-							}
-							this.parentNode.insertBefore(index ? arg.cloneNode(true) : arg, next);
-						}
-					});
-				} else if (typeof arg === 'string') {
-					var eles = $('<div></div>').html(arg)[0].childNodes;
-					this.after(eles);
-				} else if (arg['length']) {
-					for (var j=0; j<arg.length; j++) {
-						this.after(arg[j]);
-					}
-				}
-			}
-		}
-		return this;
-	}
-	Swift.prototype.before = function () {
-		if (swift.checkTypes(arguments, ['function'], true)) {
-			var callback = arguments[0];
-			this.each(function(i) {
-				$(this).before(callback.call(this, i));
-			});
-		} else {
-			for (var i=0; i<arguments.length; i++) {
-				var arg = arguments[i];
-				if (typeof arg === 'object' && arg.nodeType && arg.nodeName) { // DO
-					// ugly test arg is a element object
-					this.each(function(index) {
-						this.parentNode.insertBefore(index ? arg.cloneNode(true) : arg, this);
-					});
-				} else if (typeof arg === 'string') {
-					var eles = $('<div></div>').html(arg)[0].childNodes;
-					this.before(eles);
-				} else if (arg['length']) {
-					for (var j=0; j<arg.length; j++) {
-						this.before(arg[j]);
-					}
-				}
-			}
-		}
-		return this;
 	}
 	function AjaxEvent(context, event, handler) {
 		this.context = context;
@@ -999,6 +962,72 @@
 		}
 		global.ajaxPrefilters[dataTypes]  = handler;
 	}
+	Swift.prototype.reverse = function () {
+		Array.prototype.reverse.call(this);
+		return this;
+	}
+	Swift.prototype.after = function (arg) {
+		if (arguments.length === 1) {
+			if ($.isFunction(arg)) {
+				this.each(function(i) {
+					$(this).after(arg.call(this, i));
+				});
+			} else if (arg.swift) {
+				var self = this;
+				arg.reverse().each(function(_, ele) {
+					self.each(function(index) {
+						var parent = this.parentNode;
+						if ( ! parent || parent === document)
+							return;
+						var children = parent.childNodes,
+							next;
+						for (var i=0; i<children.length; i++) {
+							if (children[i] === this) {
+								next = children[i+1];
+								break;
+							}
+						}
+						parent.insertBefore(index ? ele.cloneNode(true) : ele, next);
+					});
+				}).reverse();
+			} else {
+				this.after($(arg));
+			}
+		} else {
+			var self = this;
+			$.each(arguments, function(_, arg) {
+				self.after(arg);
+			});
+		}
+		return this;
+	}
+	Swift.prototype.before = function (arg) {
+		if (arguments.length === 1) {
+			if ($.isFunction(arg)) {
+				this.each(function(i) {
+					$(this).before(arg.call(this, i));
+				});
+			} else if (arg.swift) {
+				var self = this;
+				arg.each(function(_, ele) {
+					self.each(function(index) {
+						var parent = this.parentNode;
+						if ( ! parent || parent === document)
+							return;
+						parent.insertBefore(index ? ele.cloneNode(true) : ele, this);
+					});
+				});
+			} else {
+				this.before($(arg));
+			}
+		} else {
+			var self = this;
+			$.each(arguments, function(_, arg) {
+				self.before(arg);
+			});
+		}
+		return this;
+	}
 	var obj = {
 		insertBefore: 'before',
 		insertAfter: 'after'
@@ -1006,12 +1035,9 @@
 	for (var name in obj) {
 		(function(name, orig) {
 			Swift.prototype[name] = function(target) {
-				if (typeof target === 'string') {
-					var eles = $('<div></div>').html(target)[0].childNodes;
-					return this[name](eles);
-				} else if (typeof target === 'object' && target.nodeType && target.nodeName) {
-					return this[name]([target]);
-				} else if (target.length) {
+				if ($.isString(target) || $.isNode(target)) {
+					return this[name]($(target));
+				} else if ($.isList(target)) {
 					var newSet = [];
 					var src = this;
 					$(target).each(function(index) {
@@ -1031,21 +1057,18 @@
 		if (!other)
 			throw new TypeError();
 		if (this.length) {
-			if (typeof other === 'string') {
-				var eles = $('<div></div>').html(other)[0].childNodes;
-				this.append(eles);
-			} else if (typeof other === 'function') {
-				this.each(function(i) {
-					$(this).append(other.call(this, i, this.innerHTML));
-				});
-			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+			if ($.isFunction(other)) {
+				this.append(other.call(this, i, this.innerHTML));
+			} else if (other.swift) {
 				this.each(function(index) {
-					this.appendChild(index ? other.cloneNode(true) : other);
+					var frag = document.createDocumentFragment();
+					other.each(function() {
+						frag.appendChild(index ? this.cloneNode(true) : this);
+					});
+					this.appendChild(frag);
 				});
-			} else if (other.length) {
-				for (var i = 0; i < other.length; i++) {
-					this.append(other[i]);
-				}
+			} else {
+				this.append($(other));
 			}
 		}
 		return this;
@@ -1054,21 +1077,18 @@
 		if (!other)
 			throw new TypeError();
 		if (this.length) {
-			if (typeof other === 'string') {
-				var eles = $('<div></div>').html(other)[0].childNodes;
-				this.prepend(eles);
-			} else if (typeof other === 'function') {
-				this.each(function(i) {
-					$(this).prepend(other.call(this, i, this.innerHTML));
-				});
-			} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
+			if ($.isFunction(other)) {
+				this.prepend(other.call(this, i, this.innerHTML));
+			} else if (other.swift) {
 				this.each(function(index) {
-					this.insertBefore(index ? other.cloneNode(true) : other, this.firstChild);
+					var frag = document.createDocumentFragment();
+					other.each(function() {
+						frag.appendChild(index ? this.cloneNode(true) : this);
+					});
+					this.insertBefore(frag, this.firstChild);
 				});
-			} else if (other.length) {
-				for (var i = 0; i < other.length; i++) {
-					this.prepend(other[i]);
-				}
+			} else {
+				this.prepend($(other));
 			}
 		}
 		return this;
@@ -1083,22 +1103,10 @@
 				if (!other)
 					throw new TypeError();
 				if (this.length) {
-					if (typeof other === 'string') {
-						try {
-							var $ele = $(other);
-							this[name]($ele);
-						} catch (e) {
-							var eles = swift.filter($('<div></div>').html(other)[0].childNodes, function(ele) {
-								return ele.nodeType === 1;
-							});
-							this[name](eles);
-						}
-					} else if (typeof other === 'object' && other.nodeType && other.nodeName) {
-							this[name]([other]);
-					} else if (other.length) {
+					if (other.swift) {
 						var newSet = [];
 						var src = this;
-						$(other).each(function(index) {
+						other.each(function(index) {
 							for (var i=0; i<src.length; i++) {
 								var ele = index ? src[i].cloneNode(true) : src[i];
 								newSet.push(ele);
@@ -1106,6 +1114,8 @@
 							}
 						});
 						return newSet;
+					} else {
+						this[name]($(other));
 					}
 				}
 				return this;
@@ -1117,7 +1127,7 @@
 		if (!arguments.length)
 			throw new TypeError();
 		if (this.length) {
-			if (swift.checkTypes(arguments, ['string'], true)) {
+			if ($.checkTypes(arguments, ['string'], true)) {
 				var name = arguments[0];
 				if (name === 'tag')
 					return this[0].tagName.toLowerCase();
@@ -1129,7 +1139,7 @@
 				    this[0].tagName.toLowerCase() === 'option')
 						return this[0].getAttribute(name) !== null;
 				return this[0].getAttribute(name) || undefined;
-			} else if (swift.checkTypes(arguments, ['object'], true)) {
+			} else if ($.checkTypes(arguments, ['object'], true)) {
 				var attrs = arguments[0];
 				for (var name in attrs) {
 					this.attr(name, attrs[name]);
@@ -1252,8 +1262,23 @@
 		}
 		return is;
 	}
+	Swift.prototype.contains = function() {
+		// TODO
+	}
 	Swift.prototype.map = function () {
-		
+		// TODO
+	}
+	Swift.prototype.merge = function() {
+		// TODO
+	}
+	Swift.prototype.sub = function() {
+		// TODO
+	}
+	Swift.prototype.unique = function() {
+		// TODO
+	}
+	Swift.prototype.isWindow = function () {
+		return this.get(0) === window;
 	}
 	var obj = ['next', 'prev', 'nextAll', 'prevAll'];
 	obj.forEach(function(name) {
@@ -1540,7 +1565,7 @@
 	Swift.prototype.children = function () {
 		var children = [];
 		this.each(function() {
-			swift.filter(this.childNodes, function (ele) {
+			$.filter(this.childNodes, function (ele) {
 				return ele.nodeType === 1;
 			}).forEach(function(child) {
 				children.push(child);
@@ -1549,6 +1574,7 @@
 		return $(children);
 	}
 	Swift.prototype.not = function () {
+		// TODO
 		if (typeof arguments[0] == 'function') {
 			this.each(function(index) {
 				
@@ -1579,7 +1605,7 @@
 		});
 	}
 	Swift.prototype.show = function (speed) {
-		if (!speed) return this.css('display', swift.isinline(this.tag()) ? 'inline' : 'block');
+		if (!speed) return this.css('display', $.isinline(this.tag()) ? 'inline' : 'block');
 		var orgwidth = this.css('width'),
 			orgheight = this.css('height'),
 			dsp = this.css('display');
@@ -1711,7 +1737,7 @@
 			.html(param.closeText || param.closeIcon ? '<img src="%s">'.fs(param.closeIcon) : 'X&nbsp;')
 			.appendTo(titleDiv ? titleDiv : dlg)
 			.click(function () {
-				if (swift.type(param.close) == 'Function') {
+				if ($.type(param.close) == 'Function') {
 					if (param.close.apply(userDlg, arguments)) userDlg.close();
 				} else userDlg.close();
 			});
@@ -1780,13 +1806,13 @@
 			values.push(end);
 			return values;
 		}
-		if (swift.type(duration) == 'Function') {
+		if ($.type(duration) == 'Function') {
 			callback = duration;
 			duration = undefined;
 		}
 		var interval = 10,
 			ele = this,
-			duration = swift.type(duration) == 'Number' ? duration : (function (preset) {
+			duration = $.type(duration) == 'Number' ? duration : (function (preset) {
 				if (preset == 'slow') return 700;
 				if (preset == 'middle') return 500;
 				if (preset == 'fast') return 300;
@@ -1797,14 +1823,14 @@
 			for (var name in ts) {
 				var tsv /*target style value*/
 				= ts[name];
-				tsv = swift.asInt(tsv);
+				tsv = $.asInt(tsv);
 				if (isNaN(tsv)) continue;
 				var unit = /\D*$/.exec(tsv);
 				if (!! unit) unit = 'px';
 				var csv /*current style value*/
 				= this.css(name);
 				if (!csv) csv = this.style(name);
-				csv = swift.asInt(csv) || 0;
+				csv = $.asInt(csv) || 0;
 				styles[name] = {
 					start: csv,
 					end: tsv,
@@ -1833,9 +1859,9 @@
 	Swift.prototype.em2px = function () {
 		if (!this.length) return;
 		if (this[0].currentStyle) {
-			return swift.asInt(this[0].currentStyle['fontSize']);
+			return $.asInt(this[0].currentStyle['fontSize']);
 		} else if (window.getComputedStyle) {
-			return swift.asInt(document.defaultView.getComputedStyle(this[0], null).getPropertyValue('font-size'));
+			return $.asInt(document.defaultView.getComputedStyle(this[0], null).getPropertyValue('font-size'));
 		}
 	}
 	Swift.prototype.first = function () {
@@ -1891,6 +1917,9 @@
 		var deferred = $.Deferred(job);
 		return deferred.promise();
 	}
+	Swift.prototype.makeArray = function() {
+		// TODO
+	}
 	
 	// ### Swift ends
 	
@@ -1910,11 +1939,11 @@
 	}
 	
 	var _$ = window.$;
-	window.$ = window.swift = swift = function (selector, ctx) {
-		if (!selector) return null;
+	var $ = window.$ = window.swift = function (selector, ctx) {
+		if (!selector) selector = [];
 		if (!ctx) ctx = window.document;
 
-		var type = swift.type(selector);
+		var type = $.type(selector);
 		if (type == "String") {
 			var matched = /^<(\w+)\s*\/?>(?:<\/\1>)?$/.exec(selector);
 			if (matched) var tags = [window.document.createElement(matched[1])];
@@ -1956,7 +1985,7 @@
 			} else {
 				if (window.document.addEventListener) {
 					window.document.addEventListener("DOMContentLoaded", selector, false);
-				} else if (swift.browser.webkit) {
+				} else if ($.browser.webkit) {
 					var _timer = setInterval(function () {
 						if (/loaded|complete/.test(document.readyState)) {
 							selector();
@@ -1974,6 +2003,12 @@
 	swift.noConflict = function() {
 		window.$ = _$;
 	}
+	swift.Callbacks = function() {
+		// TODO
+	}
+	swift.reverse = function(items) {
+		return Array.prototype.reverse.call(items);
+	}
 	// swift.error = console ? console.error : alert;
 	// swift.log = console ? console.log : alert;
 	swift.pixelAsInt = function(pixelStr) {
@@ -1982,7 +2017,13 @@
 	swift.cloneObject = function(obj) {
 		return JSON.parse(JSON.stringify(obj));
 	}
-	swift.emptyObject = function(obj) {
+	swift.data = function() {
+		// TODO
+	}
+	swift.removeData = function () {
+		// TOTDO
+	}
+	swift.isEmptyObject = function(obj) {
 		var empty = true;
 		for (var i in empty)
 			empty = false;
@@ -1990,7 +2031,7 @@
 	}
 	swift.checkTypes = function(args, types, restricted) {
 		if (restricted && types.length !== args.length) return false;
-		return types.length === 0 || swift.filter(types, function(type, index) {
+		return types.length === 0 || $.filter(types, function(type, index) {
 			return typeof args[index] === type;
 		}).length == types.length;
 	}
@@ -2005,6 +2046,21 @@
 			type = (results && results.length > 1) ? results[1] : type;
 		}
 		return type;
+	}
+	swift.isFunction = function(value) {
+		return typeof value === 'function';
+	}
+	swift.isArray = function(value) {
+		return Array.prototype.isArray(value);
+	}
+	swift.isString = function(value) {
+		return typeof value === 'string';
+	}
+	swift.isNode = function(value) {
+		return typeof value === 'object' && value.nodeName && value.nodeType;
+	}
+	swift.isList = function(value) {
+		return typeof value === 'object' && typeof value.length === 'number';
 	}
 	swift.browser = (function () {
 		var ua = navigator.userAgent.toLowerCase(),
@@ -2053,10 +2109,18 @@
 		/*
 			$.each(items, callback(index, item))
 		*/
-		for (var key in items) {
-			var item = items[key];
-			callback.call(item, key, item);
+		if ($.isList(items)) {
+			for (var i=0; i<items.length; i++) {
+				var item = items[i];
+				callback.call(item, i, item);
+			}
+		} else {
+			for (var key in items) {
+				var item = items[key];
+				callback.call(item, key, item);
+			}
 		}
+		return items;
 	}
 	swift.htmlEncode = function (source) {
 		return source.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/ /g, '&nbsp;');
@@ -2786,6 +2850,12 @@
 	swift.isNumberic = function (data) {
 		return !isNaN(parseFloat(data)) && isFinite(data);
 	}
+	swift.isPlainObject = function (data) {
+		// TODO
+	}
+	swift.isXMLDoc = function (data) {
+		// TODO
+	}
 	swift.parseXML = function (data) {
 		var xml;
 		try {
@@ -2811,6 +2881,21 @@
 		}
 		return false;
 	}
+	swift.contains = function(first, second) {
+		// TODO
+	}
+	swift.data = function() {
+		// TODO
+	}
+	swift.globalEval = function(code) {
+		return window.eval(code);
+	}
+	swift.grep = function() {
+		// TODO
+	}
+	swift.unique = function() {
+		// TODO
+	}
 	swift.extend = function () {
 		var fns = arguments[0],
 			name = arguments[0],
@@ -2834,7 +2919,7 @@
 		var type = typeof o;
 		if (type === 'undefined') return undefined;
 		if (type === 'number' || type === 'boolean') return '' + o;
-		if (type === 'string') return swift.quoteString(o);
+		if (type === 'string') return $.quoteString(o);
 		if (type === 'object') {
 			if (o.constructor === Date) {
 				var month = o.getUTCMonth() + 1,
@@ -2856,7 +2941,7 @@
 			if (o.constructor === Array) {
 				var ret = [];
 				for (var i = 0; i < o.length; i++) {
-					ret.push(swift.toJSON(o[i]) || 'null');
+					ret.push($.toJSON(o[i]) || 'null');
 				}
 				return '[' + ret.join(',') + ']';
 			}
@@ -2864,11 +2949,11 @@
 			for (var k in o) {
 				type = typeof k;
 				if (type === 'number') name = '"' + k + '"';
-				else if (type === 'string') name = swift.quoteString(k);
+				else if (type === 'string') name = $.quoteString(k);
 				else continue;
 				type = typeof o[k];
 				if (type === 'function' || type === 'undefined') continue;
-				val = swift.toJSON(o[k]);
+				val = $.toJSON(o[k]);
 				pairs.push(name + ':' + val);
 			}
 			return '{' + pairs.join(',') + '}';
@@ -2901,7 +2986,7 @@
 		return '"' + string + '"';
 	}
 	swift.isinline = function (tag) {
-		return swift.inArray(tag, ["a", "abbr", "acronym", "b", "bdo", "big", "br", "cite", "code", "dfn", "em", "i", "img", "input", "kbd", "label", "q", "samp", "select", "small", "span", "strong", "sub", "sup", "textarea", "tt", "var"]);
+		return $.inArray(tag, ["a", "abbr", "acronym", "b", "bdo", "big", "br", "cite", "code", "dfn", "em", "i", "img", "input", "kbd", "label", "q", "samp", "select", "small", "span", "strong", "sub", "sup", "textarea", "tt", "var"]);
 	}
 	swift.site_path = function (path) {
 		var prefix = this.site_url_prefix.endswith('/') ? this.site_url_prefix.slice(0, -1) : this.site_url_prefix;
@@ -2913,14 +2998,24 @@
 	}
 	swift.site_url = function (path, protocol) {
 		var protocol = protocol || window.location.href.startswith('https://') ? 'https' : 'http';
-		return "%s://%s%s".fs(protocol, location.host, swift.site_path(path));
+		return "%s://%s%s".fs(protocol, location.host, $.site_path(path));
 	}
 	swift.goTo = function (url) {
 		return window.document.location.href = url;
+	}
+	swift.noop = function() {
+		return function() {};
 	}
 	swift.extend = function (params) {
 		for (var key in params) {
 			Swift.prototype[key] = params[key];
 		}
+	}
+	swift.simulatejQuery = function() {
+		this.jQuery = window.jQuery;
+		window.jQuery = this;
+	}
+	swift.unSimulatejQuery = function() {
+		window.jQuery = this.jQuery;
 	}
 })(window);
