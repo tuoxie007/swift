@@ -3,6 +3,11 @@
 */
 
 (function (window) {
+	
+	var document = window.document;
+		hasOwn = Object.prototype.hasOwnProperty;
+	
+	
 	//Extends build in types
 	String.prototype.fs = function () {
 		segments = this.split('%s');
@@ -87,14 +92,16 @@
 		return this.slice();
 	}
 	Swift.prototype.push = Array.prototype.push;
+	Swift.prototype.concat = Array.prototype.concat;
 	Swift.prototype.sort = Array.prototype.sort;
+	// splice make Swift looks like a Array object
 	Swift.prototype.splice = Array.prototype.splice;
 	Swift.prototype.slice = function(start, end) {
 		var ret = slice.call(this, start, end);
 		return this.pushStack($(ret), 'slice', start, end);
 	}
-	Swift.prototype.find = function (arg1) { // TEST
-		var found = undefined;
+	Swift.prototype.find = function (arg1) {
+		var found;
 		if (!this.length)
 			found = $([]);
 		else if (typeof arg1 === 'string') { // .find(selector)
@@ -106,7 +113,7 @@
 			});
 		} else if (arg1.length && arg1[0]) { // .find(swift object) or .find(elements)
 			var children = this.children();
-			if (children) {
+			if (children.length) {
 				found = $(children.filter(function() {
 					return $.inArray(this, arg1);
 				}).get().concat(children.find(arg1).get()));
@@ -116,7 +123,9 @@
 		} else { // .find(element)
 			return this.find([arg1]);
 		}
-		return this.pushStack(found, 'find', arguments);
+		
+		return found;
+		// return this.pushStack(found, 'find', arguments);
 	}
 	Swift.prototype.pushStack = function(elements, method, args) {
 		var newSwift = $(elements);
@@ -288,12 +297,6 @@
 			});
 		}).apply(this, args);
 		return this;
-	}
-	Swift.prototype.bind = function() {
-		// TODO
-	}
-	Swift.prototype.unbind = function() {
-		// TODO
 	}
 	Swift.prototype.toggle = function () {
 		if ($.checkTypes(arguments, ['function', 'function'])) {
@@ -541,6 +544,11 @@
 			return this[0].style[$.styleName(name)];
 	}
 	Swift.prototype.width = function (value) {
+		if (this.isWindow()) {
+			return window.outerWidth;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.max(document.documentElement['clientWidth'], document.documentElement['scrollWidth'], document.documentElement['offsetWidth']);
+		}
 		if (arguments.length) {
 			if (!$.isInt(value)) {
 				return this.css('width', value);
@@ -548,24 +556,39 @@
 				return this.css('width', value + 'px');
 			}
 		} else if (this.length) {
-			return this.css('width');
+			return $.pixelAsInt(this.css('width'));
 		}
 	}
 	Swift.prototype.innerWidth = function () {
+		if (this.isWindow()) {
+			return window.innerWidth;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.min(document.documentElement['clientWidth'], document.documentElement['scrollWidth'], document.documentElement['offsetWidth']);
+		}
 		var width = $.pixelAsInt(this.width());
 		var paddingLeftWidth = $.pixelAsInt(this.css('padding-left')) || 0;
 		var paddingRightWidth = $.pixelAsInt(this.css('padding-right')) || 0;
 		var borderLeftWidth = $.pixelAsInt(this.css('border-left-width')) || 0;
 		var borderRightWidth = $.pixelAsInt(this.css('border-right-width')) || 0;
-		return width + paddingLeftWidth + paddingRightWidth + borderLeftWidth + borderRightWidth + 'px';
+		return width + paddingLeftWidth + paddingRightWidth + borderLeftWidth + borderRightWidth;
 	}
 	Swift.prototype.outterWidth = function () {
+		if (this.isWindow()) {
+			return window.outterWidth;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.max(document.documentElement['clientWidth'], document.documentElement['scrollWidth'], document.documentElement['offsetWidth']);
+		}
 		var innerWidth = $.pixelAsInt(this.innerWidth());
 		var marginLeftWidth = $.pixelAsInt(this.css('margin-left')) || 0;
 		var marginRightWidth = $.pixelAsInt(this.css('margin-right')) || 0;
-		return innerWidth + marginLeftWidth + marginRightWidth + 'px';
+		return innerWidth + marginLeftWidth + marginRightWidth;
 	}
 	Swift.prototype.height = function (value) {
+		if (this.isWindow()) {
+			return window.outerHeight;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.max(document.documentElement['clientHeight'], document.documentElement['scrollHeight'], document.documentElement['offsetHeight']);
+		}
 		if (arguments.length) {
 			if (!$.isInt(value)) {
 				return this.css('height', value);
@@ -573,22 +596,32 @@
 				return this.css('height', value + 'px');
 			}
 		} else if (this.length) {
-			return this.css('height');
+			return $.pixelAsInt(this.css('height'));
 		}
 	}
 	Swift.prototype.innerHeight = function () {
+		if (this.isWindow()) {
+			return window.innerHeight;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.min(document.documentElement['clientHeight'], document.documentElement['scrollHeight'], document.documentElement['offsetHeight']);
+		}
 		var height = $.pixelAsInt(this.height());
 		var paddingLeftHeight = $.pixelAsInt(this.css('padding-left')) || 0;
 		var paddingRightHeight = $.pixelAsInt(this.css('padding-right')) || 0;
 		var borderLeftHeight = $.pixelAsInt(this.css('border-left-width')) || 0;
 		var borderRightHeight = $.pixelAsInt(this.css('border-right-width')) || 0;
-		return height + paddingLeftHeight + paddingRightHeight + borderLeftHeight + borderRightHeight + 'px';
+		return height + paddingLeftHeight + paddingRightHeight + borderLeftHeight + borderRightHeight;
 	}
 	Swift.prototype.outterHeight = function () {
+		if (this.isWindow()) {
+			return window.outterHeight;
+		} else if ($.inArray(this.get(0), [document, document.documentElement])) {
+			return Math.max(document.documentElement['clientHeight'], document.documentElement['scrollHeight'], document.documentElement['offsetHeight']);
+		}
 		var innerHeight = $.pixelAsInt(this.innerHeight());
 		var marginLeftHeight = $.pixelAsInt(this.css('margin-left')) || 0;
 		var marginRightHeight = $.pixelAsInt(this.css('margin-right')) || 0;
-		return innerHeight + marginLeftHeight + marginRightHeight + 'px';
+		return innerHeight + marginLeftHeight + marginRightHeight;
 	}
 	Swift.prototype.offset = function () {
 		if (this.length === 0)
@@ -896,6 +929,13 @@
 				var ajaxEvent = new AjaxEvent(this, event, handler);
 				global.ajaxEvents.push(ajaxEvent);
 			});
+		} else if ($.checkTypes(arguments, ['string', 'object', 'boolean'], true) ||
+			$.checkTypes(arguments, ['string', 'boolean'], true)) {
+				// TODO
+				$.error('.bind( eventType [, eventData], preventBubble ) is not implemented');
+				return this;
+		} else {
+			return this.on.apply(this, arguments);
 		}
 		return this;
 	}
@@ -912,6 +952,11 @@
 				var ajaxEvent = new AjaxEvent(this, event.slice(4).toLowerCase(), handler);
 				global.ajaxEvents.push(ajaxEvent);
 			});
+		} else if (arguments[1] === false) {
+			$.error('.unbind( eventType, false ) is not implemented');
+			return this;
+		} else {
+			return this.off.apply(this, arguments);
 		}
 		return this;
 	}
@@ -1113,7 +1158,7 @@
 								$(this)[orig](ele);
 							}
 						});
-						return newSet;
+						return $(newSet);
 					} else {
 						this[name]($(other));
 					}
@@ -1262,9 +1307,6 @@
 		}
 		return is;
 	}
-	Swift.prototype.contains = function() {
-		// TODO
-	}
 	Swift.prototype.map = function () {
 		// TODO
 	}
@@ -1384,7 +1426,7 @@
 				$(this).children().each(function() {
 					children.push($(this).clone(true, true));
 				});
-				this.innerHTML = ''; //TODO change to $(this).empty();
+				$(this).empty();
 				$(this).append(children);
 			}
 		});
@@ -1888,8 +1930,7 @@
 			if (this.length > i)
 				return this[i];
 		}
-		var ret = this.slice();
-		return this.push($(ret), 'get', i);
+		return slice.call(this);
 	}
 	Swift.prototype.layout = function () {
 		if (!this.length) return null;
@@ -1941,12 +1982,12 @@
 	var _$ = window.$;
 	var $ = window.$ = window.swift = function (selector, ctx) {
 		if (!selector) selector = [];
-		if (!ctx) ctx = window.document;
+		if (!ctx) ctx = document;
 
 		var type = $.type(selector);
 		if (type == "String") {
 			var matched = /^<(\w+)\s*\/?>(?:<\/\1>)?$/.exec(selector);
-			if (matched) var tags = [window.document.createElement(matched[1])];
+			if (matched) var tags = [document.createElement(matched[1])];
 			else {
 				matched = /^(?:[^#<]*(<[\w\W]+>)[^>]*$|#([\w\-]*)$)/.exec(selector);
 				if (matched && matched[1]) {
@@ -1983,8 +2024,8 @@
 			if (/loaded|complete/.test(document.readyState)) {
 				selector();
 			} else {
-				if (window.document.addEventListener) {
-					window.document.addEventListener("DOMContentLoaded", selector, false);
+				if (document.addEventListener) {
+					document.addEventListener("DOMContentLoaded", selector, false);
 				} else if ($.browser.webkit) {
 					var _timer = setInterval(function () {
 						if (/loaded|complete/.test(document.readyState)) {
@@ -1993,7 +2034,15 @@
 						}
 					}, 10);
 				} else {
-					window.onload = selector;
+					var oldOnload = window.onload;
+					if (typeof oldOnload === 'function') {
+						window.onload = function() {
+							oldOnload.apply(this, arguments);
+							selector.apply(this, arguments);
+						}
+					} else {
+						window.onload = selector;
+					}
 				}
 			}
 			return;
@@ -2011,17 +2060,28 @@
 	}
 	// swift.error = console ? console.error : alert;
 	// swift.log = console ? console.log : alert;
+	swift.error = function(msg) {
+		throw new Error(msg);
+	}
 	swift.pixelAsInt = function(pixelStr) {
 		return parseInt(pixelStr.substr(0, pixelStr.length-2));
 	}
 	swift.cloneObject = function(obj) {
 		return JSON.parse(JSON.stringify(obj));
 	}
-	swift.data = function() {
-		// TODO
+	swift.data = function(ele, key, value) {
+		if (aruguments.length === 3) {
+			return $(ele).data(key, value);
+		} else {
+			return $(ele).data(key);
+		}
 	}
-	swift.removeData = function () {
-		// TOTDO
+	swift.removeData = function (ele, name) {
+		if (aruguments.length === 3) {
+			return $(ele, name);
+		} else {
+			return $(ele);
+		}
 	}
 	swift.isEmptyObject = function(obj) {
 		var empty = true;
@@ -2096,7 +2156,7 @@
 	}
 	swift.map = function (items, callback) {
 		/*
-			$.map(items, callback(item,index, items))
+			$.map(items, callback(item, index, items))
 				return a collection contains with values return from callback
 		*/
 		var res = [];
@@ -2104,6 +2164,12 @@
 				res.push(callback.call(eles, ele, i, eles));
 			});
 		return res;
+	}
+	swift.reduce = function(arr, valueInitial, fnReduce) {
+		$.each(arr, function(i, value) {
+			valueInitial = fnReduce.call(value, valueInitial, value, i);
+		});
+		return valueInitial;
 	}
 	swift.each = function(items, callback) {
 		/*
@@ -2850,11 +2916,30 @@
 	swift.isNumberic = function (data) {
 		return !isNaN(parseFloat(data)) && isFinite(data);
 	}
-	swift.isPlainObject = function (data) {
-		// TODO
+	swift.isPlainObject = function (obj) {
+		if (!obj || $.type(obj) !== "Object" || obj.nodeType || $.isWindow(obj)) {
+			return false;
+		}
+		try {
+			if ( obj.constructor &&
+				!hasOwn.call(obj, "constructor") &&
+				!hasOwn.call(obj.constructor.prototype, "isPrototypeOf") ) {
+				return false;
+			}
+		} catch ( e ) {
+			return false;
+		}
+		var key;
+		for ( key in obj ) {}
+		return key === undefined || hasOwn.call( obj, key );
 	}
 	swift.isXMLDoc = function (data) {
-		// TODO
+		try {
+			var xml = $.parseXML(data);
+		} catch (e) {
+			return false;
+		}
+		return true;
 	}
 	swift.parseXML = function (data) {
 		var xml;
@@ -2882,10 +2967,7 @@
 		return false;
 	}
 	swift.contains = function(first, second) {
-		// TODO
-	}
-	swift.data = function() {
-		// TODO
+		return $(first).find(second).length > 0;
 	}
 	swift.globalEval = function(code) {
 		return window.eval(code);
@@ -2993,7 +3075,7 @@
 		if (path.startswith('/')) {
 			return (prefix || '') + path;
 		} else {
-			return (window.document.location.pathname.endswith('/') ? '%s%s' : '%s/%s').fs(window.document.location.pathname, path);
+			return (document.location.pathname.endswith('/') ? '%s%s' : '%s/%s').fs(document.location.pathname, path);
 		}
 	}
 	swift.site_url = function (path, protocol) {
@@ -3001,7 +3083,7 @@
 		return "%s://%s%s".fs(protocol, location.host, $.site_path(path));
 	}
 	swift.goTo = function (url) {
-		return window.document.location.href = url;
+		return document.location.href = url;
 	}
 	swift.noop = function() {
 		return function() {};
@@ -3017,5 +3099,8 @@
 	}
 	swift.unSimulatejQuery = function() {
 		window.jQuery = this.jQuery;
+	}
+	swift.read = function() {
+		// TODO
 	}
 })(window);
