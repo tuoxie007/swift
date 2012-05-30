@@ -108,9 +108,9 @@
 	
 	//Extends build in types
 	String.prototype.fs = function () {
-		segments = this.split('%s');
-		ret = '';
-		for (var i in arguments) {
+		var segments = this.split('%s'),
+			ret = '';
+		for (var i=0; i<arguments.length; i++) {
 			ret += segments[i] + arguments[i];
 		}
 		return ret + segments[segments.length - 1];
@@ -236,8 +236,7 @@
 			return this.find([arg1]);
 		}
 		
-		return found;
-		// return this.pushStack(found, 'find', arguments);
+		return this.pushStack(found, 'find', arguments);
 	}
 	Swift.prototype.pushStack = function(elements, method, args) {
 		var newSwift = $(elements);
@@ -276,7 +275,7 @@
 		this.bind = function() {
 			$(this.context).each(function() {
 				if (window.addEventListener) {
-					this.addEventListener(action, real_heandler);
+					this.addEventListener(action, real_heandler, false);
 				} else {
 					this.attachEvent('on' + action, real_heandler);
 				}
@@ -654,6 +653,7 @@
 		} else {
 			return undefined;
 		}
+		return this;
 	}
 	Swift.prototype.css = function (name) {
 		if ($.checkTypes(arguments, ['string'], true)) {
@@ -857,6 +857,12 @@
 		} else {
 			return null;
 		}
+	}
+	Swift.prototype.scrollTo = function(x, y) {
+		// TODO
+	}
+	Swift.prototype.scrollBy = function(x, y) {
+		// TODO
 	}
 	Swift.prototype.scrollTop = function() {
 		if (this.length) {
@@ -1527,7 +1533,7 @@
 		this.each(function() {
 			var parent = $(this).parent();
 			if (parent.length) {
-				parent.children().filternot(this).slice().forEach(function(ele) {
+				parent.children().not(this).slice().each(function(i, ele) {
 					if (!$.inArray(ele, ret)) {
 						ret.push(ele);
 					}
@@ -1568,7 +1574,7 @@
 		return $(newEles);
 	}
 	Swift.prototype.empty = function() {
-		this.each(function() {
+		return this.each(function() {
 			this.innerHTML = '';
 		});
 	}
@@ -2117,7 +2123,7 @@
 					}
 				}
 			}
-		} else if (selector.nodeType || selector === window) {
+		} else if (selector.tagName || selector.nodeType || selector === window || selector === document) {
 			var tags = [selector];
 		} else if (type == 'Array' || type == 'NodeList') {
 			var tags = selector;
@@ -2277,7 +2283,7 @@
 		return typeof value === 'string';
 	}
 	swift.isNode = function(value) {
-		return typeof value === 'object' && value.nodeName && value.nodeType;
+		return typeof value === 'object' && value.nodeType || value.tagName;
 	}
 	swift.isList = function(value) {
 		return typeof value === 'object' && typeof value.length === 'number';
@@ -2556,10 +2562,12 @@
 		// set timeout
 		if (param.timeout) {
 			setTimeout(function () {
-				if (param.context) {
-					deferred.rejectWith(param.context, swxhr, 'timeout');
-				} else {
-					deferred.reject(swxhr, 'timeout');
+				if (deferred.state() == 'pending') {
+					if (param.context) {
+						deferred.rejectWith(param.context, swxhr, 'timeout');
+					} else {
+						deferred.reject(swxhr, 'timeout');
+					}
 				}
 			}, param.timeout);
 		}
@@ -2579,6 +2587,9 @@
 				deferred.resolveWith(param.context, obj, 'success', swxhr);
 			else
 				deferred.resolve(obj, 'success', swxhr);
+			// TODO remove script tag
+			// TODO removed, checked removing is ok
+			$(script).remove();
 		}
 	}
 	function sendAjax(param, deferred, promise) {
@@ -2751,13 +2762,15 @@
 		// set timeout
 		if (param.timeout) {
 			setTimeout(function () {
-				xmlhttp.abort();
-				if (param.context) {
-					deferred.rejectWith(param.context, swxhr, 'timeout');
-				} else {
-					deferred.reject(swxhr, 'timeout');
+				if (deferred.state() == 'pending') {
+					xmlhttp.abort();
+					if (param.context) {
+						deferred.rejectWith(param.context, swxhr, 'timeout');
+					} else {
+						deferred.reject(swxhr, 'timeout');
+					}
+					// callbacks.abort.call(param);
 				}
-				// callbacks.abort.call(param);
 			}, param.timeout);
 		}
 		
@@ -3086,7 +3099,7 @@
 		return !isNaN(parseFloat(data)) && isFinite(data);
 	}
 	swift.isPlainObject = function (obj) {
-		if (!obj || $.type(obj) !== "Object" || obj.nodeType || $.isWindow(obj)) {
+		if (!obj || $.type(obj) !== "Object" || obj.nodeType || obj.tagName || $.isWindow(obj) || obj === document) {
 			return false;
 		}
 		try {
