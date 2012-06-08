@@ -1433,7 +1433,7 @@
 		return $(newEles);
 	}
 	Swift.prototype.empty = function() {
-		this.each(function() {
+		return this.each(function() {
 			this.innerHTML = '';
 		});
 	}
@@ -1921,7 +1921,10 @@
 		return this.pushStack(ret, 'eq', i);
 	}
 	Swift.prototype.eq = function (i) {
-		index = (i+this.length) % this.length;
+		if (i >= 0)
+			var index = i;
+		else
+			var index = (i+this.length) % this.length;
 		var ret = $(this.slice(index, index + 1));
 		return this.pushStack(ret, 'eq', i);
 	}
