@@ -1,5 +1,26 @@
 /*
-	Version: v2.0
+	Copyright (c) 2011 Xu Ke, https://github.com/tuoxie007/swift
+
+	Permission is hereby granted, free of charge, to any person obtaining
+	a copy of this software and associated documentation files (the
+	"Software"), to deal in the Software without restriction, including
+	without limitation the rights to use, copy, modify, merge, publish,
+	distribute, sublicense, and/or sell copies of the Software, and to
+	permit persons to whom the Software is furnished to do so, subject to
+	the following conditions:
+
+	The above copyright notice and this permission notice shall be
+	included in all copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+	MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+	OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+	WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+	Version: v2.0alpha
 */
 
 (function (window) {
@@ -7,18 +28,92 @@
 	var document = window.document;
 		hasOwn = Object.prototype.hasOwnProperty;
 	
+	// Add ECMA262-5 method binding if not supported natively
+	//
+	if (!('bind' in Function.prototype)) {
+		Function.prototype.bind = function(owner) {
+			var that= this;
+			if (arguments.length<=1) {
+				return function() {
+					return that.apply(owner, arguments);
+				};
+			} else {
+				var args= Array.prototype.slice.call(arguments, 1);
+				return function() {
+					return that.apply(owner, arguments.length===0? args : args.concat(Array.prototype.slice.call(arguments)));
+				};
+			}
+		};
+	}
+
+	// Add ECMA262-5 string trim if not supported natively
+	//
+	if (!('trim' in String.prototype)) {
+		String.prototype.trim = function() {
+			return this.replace(/^\s+/, '').replace(/\s+$/, '');
+		};
+	}
+
+	// Add ECMA262-5 Array methods if not supported natively
+	//
+	if (!('indexOf' in Array.prototype)) {
+		Array.prototype.indexOf = function(find, i /*opt*/) {
+			if (i===undefined) i= 0;
+			if (i<0) i+= this.length;
+			if (i<0) i= 0;
+			for (var n= this.length; i<n; i++)
+				if (i in this && this[i]===find)
+					return i;
+			return -1;
+		};
+	}
+	if (!('lastIndexOf' in Array.prototype)) {
+		Array.prototype.lastIndexOf = function(find, i /*opt*/) {
+			if (i===undefined) i= this.length-1;
+			if (i<0) i+= this.length;
+			if (i>this.length-1) i= this.length-1;
+			for (i++; i-->0;) /* i++ because from-argument is sadly inclusive */
+				if (i in this && this[i]===find)
+					return i;
+			return -1;
+		};
+	}
+	if (!('forEach' in Array.prototype)) {
+		Array.prototype.forEach = function(action, that /*opt*/) {
+			/*
+				items.forEach(callback(item, index, items));
+					this should be that or window
+			*/
+			for (var i= 0, n= this.length; i<n; i++)
+				if (i in this)
+					action.call(that, this[i], i, this);
+		};
+	}
+	if (!('remove' in Array.prototype)) {
+		Array.prototype.remove = function(item) {
+			var tmp = [],
+				removed = false;
+			while (this.length) {
+				tmp.push(this.pop());
+			}
+			for (var i=0; tmp.length; i++) {
+				if (this[i] !== item)
+					ret.push(item);
+				else
+					removed = true;
+			}
+			return removed;
+		}
+	}
 	
 	//Extends build in types
 	String.prototype.fs = function () {
-		segments = this.split('%s');
-		ret = '';
-		for (var i in arguments) {
+		var segments = this.split('%s'),
+			ret = '';
+		for (var i=0; i<arguments.length; i++) {
 			ret += segments[i] + arguments[i];
 		}
 		return ret + segments[segments.length - 1];
-	}
-	String.prototype.trim = function () {
-		return this.replace(/^\s+|\s+$/g, "");
 	}
 	String.prototype.ltrim = function () {
 		return this.replace(/^\s+/, "");
@@ -36,16 +131,33 @@
 		return this.slice(0, substr.length) == substr;
 	};
 
-
-	if (!Array.prototype.forEach) Array.prototype.forEach = function (callback) {
-		/*
-			items.forEach(callback(item, index, items));
-		*/
-		for (var i = 0; i < this.length; i++) {
-			callback(this[i], i, this);
+	function bindClassList(ele) {
+		ele.classList = {
+			add: function(className) {
+				var classes = ele.className.split(/\s+/);
+				if (!$.inArray(className, classes)) {
+					classes.push(className);
+					ele.className = classes.join(' ');
+				}
+			},
+			remove: function(className) {
+				var classes = ele.className.split(/\s+/);
+				if ($.inArray(className, classes)) {
+					var newClasses = [],
+						idx = classes.indexOf(className);
+					newClasses.concat(classes.slice(0, idx));
+					newClasses.concat(idx+1);
+					ele.className = newClasses.join(' ');
+				}
+			},
+			contains: function(className) {
+				var classes = ele.className.split(/\s+/);
+				return $.inArray(className, classes);
+			}
 		}
 	}
 	
+
 	// global
 	var global = {events: [], data: {}, ajaxEvents: [], runningAjaxCount: 0};
 	global.ajaxSettings = {
@@ -124,8 +236,7 @@
 			return this.find([arg1]);
 		}
 		
-		return found;
-		// return this.pushStack(found, 'find', arguments);
+		return this.pushStack(found, 'find', arguments);
 	}
 	Swift.prototype.pushStack = function(elements, method, args) {
 		var newSwift = $(elements);
@@ -148,20 +259,24 @@
 		this.one = one;
 		var self = this;
 		var real_heandler = function(event) {
+			var data = $.mergeObject(this.data, this.extraParameters),
+				ret;
 			(selector ? $(this).find(selector) : $(this)).each(function() {
-				if (this == (event.target || event.srcElement))
+				if (this == (event.target || event.srcElement)) {
 					if (data) event.data = data;
 					event.delegateTarget = this;
-					event.returnValue = handler.call(this, event);
+					ret = event.returnValue = handler.call(this, event);
 					if (self.one)
 						self.unbind();
 					return event.returnValue;
+				}
 			});
+			return ret;
 		};
 		this.bind = function() {
 			$(this.context).each(function() {
 				if (window.addEventListener) {
-					this.addEventListener(action, real_heandler);
+					this.addEventListener(action, real_heandler, false);
 				} else {
 					this.attachEvent('on' + action, real_heandler);
 				}
@@ -178,6 +293,12 @@
 		}
 		this.clone = function() {
 			return new SwiftEvent(this.context, selector, action, data, handler, one);
+		}
+		this.exec = function(extraParameters) {
+			return real_heandler({
+				data: $.mergeObject(data, extraParameters),
+				target: self
+			});
 		}
 	}
 	Swift.prototype.on = function() {
@@ -260,7 +381,7 @@
 				var events = events.trim().split('/\s+/');
 				this.each(function(i, ele) {
 					events.forEach(function(action) {
-						global.events = $.filter(global.events, function(swift_event) {
+						global.events = $.grep(global.events, function(swift_event) {
 							if (swift_event.context === ele && 
 								swift_event.action === action && 
 								swift_event.selector === selector) {
@@ -283,7 +404,7 @@
 		(function(event_map, selector) {
 			eles.each(function(i, ele) {
 				$.each(event_map, function(action, handler) {
-					global.events = $.filter(global.events, function(swift_event) {
+					global.events = $.grep(global.events, function(swift_event) {
 						if (swift_event.context === ele && 
 							swift_event.action === action && 
 							swift_event.selector === selector &&
@@ -312,7 +433,7 @@
 				});
 			}).apply(this, arguments);
 		} else {
-			// TODO
+			// TODO 2
 			/*
 			.toggle( [duration] [, callback] )
 				durationA string or number determining how long the animation will run.
@@ -331,31 +452,40 @@
 		this.on.apply(this, arguments);
 		this.isOne = false;
 		global.current_events.forEach(function() {
-			global.events = $.filter(global.events, function(swift_event) {
+			global.events = $.grep(global.events, function(swift_event) {
 				return swift_event in global.current_events;
 			}, true);
 		});
 		delete global.current_events;
 		return this;
 	}
-	Swift.prototype.trigger = function(event) {
-		$.filter(global.events, function(swift_event) {
-			if (swift_event.context === ele && 
-				swift_event.action === action && 
-				swift_event.selector === selector &&
-				swift_event.handler === handler) {
-					swift_event.unbind();
-					return false;
-			}
-			return true;
+	Swift.prototype.trigger = function(event, extraParameters) {
+		var eles = this,
+			triggered = $.grep(global.events, function(swift_event) {
+				return $.inArray(swift_event.context, eles) && 
+					swift_event.selector === undefined &&
+					swift_event.action === event;
 		});
+		// TODO 2 about extraParameters
 		this.each(function() {
 			this[event].call(this);
 		});
 		return this;
 	}
-	Swift.prototype.triggerHandler = function() {
-		// TODO
+	Swift.prototype.triggerHandler = function(event, extraParameters) {
+		if (this.length) {
+			var ele = this[0],
+				triggered = $.grep(global.events, function(swift_event) {
+							return swift_event.context === ele &&
+								swift_event.selector === undefined &&
+								swift_event.action === event;
+						}),
+				ret;
+			$.each(triggered, function() {
+				ret = this.exec(extraParameters);
+			});
+			return ret;
+		}
 	}
 	
 	var actions = 'change click dbclick focus focusin focusout hover keydown keypress keyup load mousedown mouseenter mouseleave mousemove mouseout mouseup resize scroll select submit unload error'.split(' ');
@@ -450,12 +580,21 @@
 		return this.attr('id', value);
 	}
 	Swift.prototype.hasClass = function (name) {
-		return this.length && this[0].classList.contains(name);
+		if (this.length) {
+			if (!('classList' in this[0])) {
+				bindClassList(this[0]);
+			}
+			return this[0].classList.contains(name);
+		}
+		return false;
 	}
 	Swift.prototype.addClass = function (name) {
 		var names = name.split(/\s+/);
 		this.each(function (i) {
 			var ele = this;
+			if (!('classList' in ele)) {
+				bindClassList(ele);
+			}
 			names.forEach(function(name) {
 				ele.classList.add(name);
 			});
@@ -466,6 +605,9 @@
 		var names = name.split(/\s+/);
 		this.each(function (i) {
 			var ele = this;
+			if (!('classList' in ele)) {
+				bindClassList(ele);
+			}
 			names.forEach(function(name) {
 				ele.classList.add(name);
 				ele.classList.remove(name);
@@ -487,9 +629,9 @@
 				this.toggleClass(className);
 			});
 		} else if ($.checkTypes(arguments, ['boolean'])) {
-			// TODO
+			// TODO 2
 		} else if ($.checkTypes(arguments, ['function', 'boolean'])) {
-			// TODO
+			// TODO 2
 		}
 		return this;
 	}
@@ -512,6 +654,7 @@
 		} else {
 			return undefined;
 		}
+		return this;
 	}
 	Swift.prototype.css = function (name) {
 		if ($.checkTypes(arguments, ['string'], true)) {
@@ -716,6 +859,12 @@
 			return null;
 		}
 	}
+	Swift.prototype.scrollTo = function(x, y) {
+		// TODO
+	}
+	Swift.prototype.scrollBy = function(x, y) {
+		// TODO
+	}
 	Swift.prototype.scrollTop = function() {
 		if (this.length) {
 			var ele = this[0];
@@ -844,13 +993,13 @@
 		}
 	}
 	Swift.prototype.quque = function() {
-		// TODO
+		// TODO 2
 	}
 	Swift.prototype.dequque = function() {
-		// TODO
+		// TODO 2
 	}
 	Swift.prototype.clearQueue = function() {
-		// TODO
+		// TODO 2
 	}
 	Swift.prototype.add = function (other, context) { // TEST
 		if (context)
@@ -931,7 +1080,7 @@
 			});
 		} else if ($.checkTypes(arguments, ['string', 'object', 'boolean'], true) ||
 			$.checkTypes(arguments, ['string', 'boolean'], true)) {
-				// TODO
+				// TODO 2
 				$.error('.bind( eventType [, eventData], preventBubble ) is not implemented');
 				return this;
 		} else {
@@ -1307,17 +1456,10 @@
 		}
 		return is;
 	}
-	Swift.prototype.map = function () {
-		// TODO
-	}
-	Swift.prototype.merge = function() {
-		// TODO
-	}
-	Swift.prototype.sub = function() {
-		// TODO
-	}
-	Swift.prototype.unique = function() {
-		// TODO
+	Swift.prototype.map = function (callback) {
+		return $.map(this, function(item, index, items) {
+			callback.call(item, index, items);
+		});
 	}
 	Swift.prototype.isWindow = function () {
 		return this.get(0) === window;
@@ -1392,7 +1534,7 @@
 		this.each(function() {
 			var parent = $(this).parent();
 			if (parent.length) {
-				parent.children().filternot(this).slice().forEach(function(ele) {
+				parent.children().not(this).slice().each(function(i, ele) {
 					if (!$.inArray(ele, ret)) {
 						ret.push(ele);
 					}
@@ -1607,7 +1749,7 @@
 	Swift.prototype.children = function () {
 		var children = [];
 		this.each(function() {
-			$.filter(this.childNodes, function (ele) {
+			$.grep(this.childNodes, function (ele) {
 				return ele.nodeType === 1;
 			}).forEach(function(child) {
 				children.push(child);
@@ -1615,21 +1757,13 @@
 		});
 		return $(children);
 	}
-	Swift.prototype.not = function () {
-		// TODO
-		if (typeof arguments[0] == 'function') {
-			this.each(function(index) {
-				
-			});
-		} else {
-			var eles = $(arguments[0]);
-		}
-	}
-	Swift.prototype.not = function (other) {
-		return ! this.is(other);
-	}
 	Swift.prototype.classes = function () {
-		if (this.length) return this[0].classList;
+		if (this.length) {
+			if (!('classList' in this[0])) {
+				bindClassList(ele);
+			}
+		}
+		return this[0].classList;
 	}
 	Swift.prototype.hide = function (speed) {
 		if (!speed) return this.css('display', 'none');
@@ -1692,43 +1826,23 @@
 	}
 	Swift.prototype.filter = function (selector, context) {
 		if (typeof selector == 'function') {
-			var ret = [];
-			this.each(function(index) {
-				if (selector.call(this, index)) {
-					ret.push(this);
-				}
-			});
-			ret = $(ret);
+			var ret = $($.grep(this, selector));
 		} else {
-			var ret = [];
 			var eles = $(selector, context);
-			this.each(function() {
-				if ($.inArray(this, eles)) {
-					ret.push(this);
-				}
-			});
-			ret = $(ret);
+			var ret = $($.grep(this, function(ele) {
+				return $.inArray(ele, eles);
+			}));
 		}
 		return this.pushStack(ret, 'filter', selector);
 	}
-	Swift.prototype.filternot = function (selector, context) {
+	Swift.prototype.not = function (selector, context) {
 		if (typeof selector == 'function') {
-			var ret = [];
-			this.each(function(index) {
-				if (!selector.call(this, index)) {
-					ret.push(this);
-				}
-			});
-			ret = $(ret);
+			var ret = $($.grep(this, selector, true));
 		} else {
-			var ret = [];
 			var eles = $(selector, context);
-			this.each(function() {
-				if (!$.inArray(this, eles)) {
-					ret.push(this);
-				}
-			});
-			ret = $(ret);
+			var ret = $($.grep(this, function(ele) {
+				return $.inArray(ele, eles);
+			}, true));
 		}
 		return this.pushStack(ret, 'filter', selector);
 	}
@@ -1956,13 +2070,10 @@
 			return this[0].checked;
 	}
 	Swift.prototype.promise = function() {
-		// TODO arguments [type] [,target]
+		// TODO 2 arguments [type] [,target]
 		var job = global.ajaxEvents[this][event];
 		var deferred = $.Deferred(job);
 		return deferred.promise();
-	}
-	Swift.prototype.makeArray = function() {
-		// TODO
 	}
 	
 	// ### Swift ends
@@ -2016,7 +2127,7 @@
 					}
 				}
 			}
-		} else if (selector.nodeType || selector === window) {
+		} else if (selector.tagName || selector.nodeType || selector === window || selector === document) {
 			var tags = [selector];
 		} else if (type == 'Array' || type == 'NodeList') {
 			var tags = selector;
@@ -2055,11 +2166,67 @@
 	swift.noConflict = function() {
 		window.$ = _$;
 	}
-	swift.Callbacks = function() {
-		// TODO
+	function Callbacks(flags) {
+		var self = this;
+		$.each(flags.split(/\s+/g), function(key, flag) {
+			self[flag] = true;
+		});
+		this.handlers = [];
+		this.enabled = true;
+		this.add = function(callback) {
+			if (this.memory && this.fired) {
+				callback.apply(this, this.arguments);
+			}
+			if ($.isList(callback)) {
+				$.each(callback, function() {
+					if (self.unique && $.inArray(this, self.handlers))
+						return;
+					self.add(this);
+				});
+			} else {
+				this.handlers.push(callback);
+			}
+		}
+		this.remove = function(callback) {
+			if ($.isList(callback)) {
+				$.each(callback, function() {
+					self.remove(this);
+				});
+			} else {
+				this.handlers.remove(callback);
+			}
+		}
+		this.disable = function() {
+			this.enabled = false;
+		}
+		this.enable = function() {
+			this.enabled = true;
+		}
+		this.fire = function() {
+			if (!this.enabled) return this;
+			if (this.onced) return this;
+			var falsed = false,
+				args = arguments;
+			$.each(this.handlers, function() {
+				if (self.stopOnFalse && falsed) return;
+				if (this.apply(self, args) === false) falsed = true;
+			});
+			if (this.once) this.onced = true;
+			if (this.memory) {
+				this.arguments = arguments;
+				this.fired = true;
+			}
+			return this;
+		}
+	}
+	swift.Callbacks = function(flags) {
+		return new Callbacks(flags);
 	}
 	swift.reverse = function(items) {
 		return Array.prototype.reverse.call(items);
+	}
+	swift.makeArray = function(items) {
+		return slice.call(items);
 	}
 	// swift.error = console ? console.error : alert;
 	// swift.log = console ? console.log : alert;
@@ -2094,7 +2261,7 @@
 	}
 	swift.checkTypes = function(args, types, restricted) {
 		if (restricted && types.length !== args.length) return false;
-		return types.length === 0 || $.filter(types, function(type, index) {
+		return types.length === 0 || $.grep(types, function(type, index) {
 			return typeof args[index] === type;
 		}).length == types.length;
 	}
@@ -2120,7 +2287,7 @@
 		return typeof value === 'string';
 	}
 	swift.isNode = function(value) {
-		return typeof value === 'object' && value.nodeName && value.nodeType;
+		return typeof value === 'object' && value.nodeType || value.tagName;
 	}
 	swift.isList = function(value) {
 		return typeof value === 'object' && typeof value.length === 'number';
@@ -2141,20 +2308,20 @@
 			mozilla: binfo[1] == 'mozilla'
 		};
 	})();
-	swift.filter = function (items, callback, reverse) {
+	swift.grep = function (items, callback, reverse) {
 		/*
-			$.filter(items, callback(item, index, items), reverse)
+			$.grep(items, callback(item, index, items), reverse)
 				if reverse is false or not set, return a collection contains sub-items in items if callback return true or true-like
  				else return a collection contains sub-items in items if callback return false or false-like
 		*/
 		if (typeof callback != "function") throw new TypeError();
 		var res = [];
-		Array.prototype.forEach.call(items, function(item, i, items) {
+		$.each(items, function(i, item) {
 			var callback_return = callback.call(item, item, i, items);
 			if (reverse && !callback_return ||
 				!reverse && callback_return)
 				res.push(item);
-			});
+		});
 		return res;
 	}
 	swift.map = function (items, callback) {
@@ -2173,6 +2340,13 @@
 			valueInitial = fnReduce.call(value, valueInitial, value, i);
 		});
 		return valueInitial;
+	}
+	swift.sub = function() {
+		eval('var swiftCopy = ' + swift.toString());
+		for (var attr in this) {
+			swiftCopy[attr] = this[attr];
+		}
+		return swiftCopy;
 	}
 	swift.each = function(items, callback) {
 		/*
@@ -2195,6 +2369,8 @@
 		return source.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/ /g, '&nbsp;');
 	}
 	swift.mergeObject = function(first, second) {
+		if (!first) first = {};
+		if (!second) second = {};
 		var ret = {};
 		if (first) {
 			for (var key in first) {
@@ -2390,10 +2566,12 @@
 		// set timeout
 		if (param.timeout) {
 			setTimeout(function () {
-				if (param.context) {
-					deferred.rejectWith(param.context, swxhr, 'timeout');
-				} else {
-					deferred.reject(swxhr, 'timeout');
+				if (deferred.state() == 'pending') {
+					if (param.context) {
+						deferred.rejectWith(param.context, swxhr, 'timeout');
+					} else {
+						deferred.reject(swxhr, 'timeout');
+					}
 				}
 			}, param.timeout);
 		}
@@ -2413,6 +2591,9 @@
 				deferred.resolveWith(param.context, obj, 'success', swxhr);
 			else
 				deferred.resolve(obj, 'success', swxhr);
+			// TODO remove script tag
+			// TODO removed, checked removing is ok
+			$(script).remove();
 		}
 	}
 	function sendAjax(param, deferred, promise) {
@@ -2585,13 +2766,15 @@
 		// set timeout
 		if (param.timeout) {
 			setTimeout(function () {
-				xmlhttp.abort();
-				if (param.context) {
-					deferred.rejectWith(param.context, swxhr, 'timeout');
-				} else {
-					deferred.reject(swxhr, 'timeout');
+				if (deferred.state() == 'pending') {
+					xmlhttp.abort();
+					if (param.context) {
+						deferred.rejectWith(param.context, swxhr, 'timeout');
+					} else {
+						deferred.reject(swxhr, 'timeout');
+					}
+					// callbacks.abort.call(param);
 				}
-				// callbacks.abort.call(param);
 			}, param.timeout);
 		}
 		
@@ -2603,42 +2786,64 @@
 				var data = param.data;
 			} else {
 				if (! param.contentType)
-					xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+					try {
+						xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+					} catch (e) {
+					}
 				var data = $.param(param.data);
 			}
 			if (param.contentType) {
-				xmlhttp.setRequestHeader('Content-Type', param.contentType);
+				try {
+					xmlhttp.setRequestHeader('Content-Type', param.contentType);
+				} catch (e) {
+				}
 			}
 			
-			// connect to server
-			if (param.username) {
-				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
-			} else {
-				xmlhttp.open(param.type, param.url, param.async);
+			try {
+				// connect to server
+				if (param.username) {
+					xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+				} else {
+					xmlhttp.open(param.type, param.url, param.async);
+				}
+				xmlhttp.send(data);
+			} catch(e) {
+				var ret = {
+					'error': 'Swift_Error',
+					'status': xmlhttp.status,
+					'headers': xmlhttp.getAllResponseHeaders(),
+					'body': xmlhttp.responseText
+				};
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'error', e);
+				} else {
+					deferred.reject(swxhr, 'error', e);
+				}
+				// param.error.call(param, ret);
 			}
-			xmlhttp.send(data);
-		}
-		try {
-			// connect to server
-			if (param.username) {
-				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
-			} else {
-				xmlhttp.open(param.type, param.url, param.async);
+		} else {
+			try {
+				// connect to server
+				if (param.username) {
+					xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+				} else {
+					xmlhttp.open(param.type, param.url, param.async);
+				}	
+				xmlhttp.send();
+			} catch(e) {
+				var ret = {
+					'error': 'Swift_Error',
+					'status': xmlhttp.status,
+					'headers': xmlhttp.getAllResponseHeaders(),
+					'body': xmlhttp.responseText
+				};
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'error', e);
+				} else {
+					deferred.reject(swxhr, 'error', e);
+				}
+				// param.error.call(param, ret);
 			}
-			xmlhttp.send();
-		} catch(e) {
-			var ret = {
-				'error': 'Swift_Error',
-				'status': xmlhttp.status,
-				'headers': xmlhttp.getAllResponseHeaders(),
-				'body': xmlhttp.responseText
-			};
-			if (param.context) {
-				deferred.rejectWith(param.context, swxhr, 'error', e);
-			} else {
-				deferred.reject(swxhr, 'error', e);
-			}
-			// param.error.call(param, ret);
 		}
 		
 		// set processor
@@ -2911,16 +3116,16 @@
 	}
 	swift.merge = function () {
 		var ret = [];
-		for (var i=0; i<arguments.length; i++) {
-			ret = ret.concat(arguments[i]);
-		}
+		$.each(arguments, function() {
+			ret = ret.concat(this);
+		});
 		return ret;
 	}
 	swift.isNumberic = function (data) {
 		return !isNaN(parseFloat(data)) && isFinite(data);
 	}
 	swift.isPlainObject = function (obj) {
-		if (!obj || $.type(obj) !== "Object" || obj.nodeType || $.isWindow(obj)) {
+		if (!obj || $.type(obj) !== "Object" || obj.nodeType || obj.tagName || $.isWindow(obj) || obj === document) {
 			return false;
 		}
 		try {
@@ -2975,11 +3180,14 @@
 	swift.globalEval = function(code) {
 		return window.eval(code);
 	}
-	swift.grep = function() {
-		// TODO
-	}
-	swift.unique = function() {
-		// TODO
+	swift.unique = function(eles) {
+		var ret = [];
+		$.each(eles, function() {
+			if (!$.inArray(this, ret)) {
+				ret.push(this);
+			}
+		});
+		return ret;
 	}
 	swift.extend = function () {
 		var fns = arguments[0],
@@ -3103,7 +3311,7 @@
 	swift.unSimulatejQuery = function() {
 		window.jQuery = this.jQuery;
 	}
-	swift.read = function() {
-		// TODO
+	swift.ready = function(handler) {
+		return $(handler);
 	}
 })(window);
