@@ -262,13 +262,14 @@
 			var data = $.mergeObject(this.data, this.extraParameters),
 				ret;
 			(selector ? $(this).find(selector) : $(this)).each(function() {
-				if (this == (event.target || event.srcElement))
+				if (this == (event.target || event.srcElement)) {
 					if (data) event.data = data;
 					event.delegateTarget = this;
 					ret = event.returnValue = handler.call(this, event);
 					if (self.one)
 						self.unbind();
 					return event.returnValue;
+				}
 			});
 			return ret;
 		};
@@ -2782,42 +2783,64 @@
 				var data = param.data;
 			} else {
 				if (! param.contentType)
-					xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+					try {
+						xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+					} catch (e) {
+					}
 				var data = $.param(param.data);
 			}
 			if (param.contentType) {
-				xmlhttp.setRequestHeader('Content-Type', param.contentType);
+				try {
+					xmlhttp.setRequestHeader('Content-Type', param.contentType);
+				} catch (e) {
+				}
 			}
 			
-			// connect to server
-			if (param.username) {
-				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
-			} else {
-				xmlhttp.open(param.type, param.url, param.async);
+			try {
+				// connect to server
+				if (param.username) {
+					xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+				} else {
+					xmlhttp.open(param.type, param.url, param.async);
+				}
+				xmlhttp.send(data);
+			} catch(e) {
+				var ret = {
+					'error': 'Swift_Error',
+					'status': xmlhttp.status,
+					'headers': xmlhttp.getAllResponseHeaders(),
+					'body': xmlhttp.responseText
+				};
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'error', e);
+				} else {
+					deferred.reject(swxhr, 'error', e);
+				}
+				// param.error.call(param, ret);
 			}
-			xmlhttp.send(data);
-		}
-		try {
-			// connect to server
-			if (param.username) {
-				xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
-			} else {
-				xmlhttp.open(param.type, param.url, param.async);
+		} else {
+			try {
+				// connect to server
+				if (param.username) {
+					xmlhttp.open(param.type, param.url, param.async, param.username, param.password);
+				} else {
+					xmlhttp.open(param.type, param.url, param.async);
+				}	
+				xmlhttp.send();
+			} catch(e) {
+				var ret = {
+					'error': 'Swift_Error',
+					'status': xmlhttp.status,
+					'headers': xmlhttp.getAllResponseHeaders(),
+					'body': xmlhttp.responseText
+				};
+				if (param.context) {
+					deferred.rejectWith(param.context, swxhr, 'error', e);
+				} else {
+					deferred.reject(swxhr, 'error', e);
+				}
+				// param.error.call(param, ret);
 			}
-			xmlhttp.send();
-		} catch(e) {
-			var ret = {
-				'error': 'Swift_Error',
-				'status': xmlhttp.status,
-				'headers': xmlhttp.getAllResponseHeaders(),
-				'body': xmlhttp.responseText
-			};
-			if (param.context) {
-				deferred.rejectWith(param.context, swxhr, 'error', e);
-			} else {
-				deferred.reject(swxhr, 'error', e);
-			}
-			// param.error.call(param, ret);
 		}
 		
 		// set processor
